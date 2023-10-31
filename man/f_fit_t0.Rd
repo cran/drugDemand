@@ -2,25 +2,22 @@
 % Please edit documentation in R/f_dispensing_models.R
 \name{f_fit_t0}
 \alias{f_fit_t0}
-\title{Time-to-Event Model Fit for Dispensing Delay After Randomization}
+\title{Model Fitting for Dispensing Delay After Randomization}
 \usage{
 f_fit_t0(df, model, nreps, showplot = TRUE)
 }
 \arguments{
 \item{df}{The subject-level dosing data, including the following
-  variables:
-
-  * \code{time}: The number of days between randomization to the
-  first drug dispensing visit (first drug dispensing date -
-  randomization date + 1).
-
-  * \code{status}: The event indicator which equals 1.
-
-  * \code{left}: Equals \code{time - 1}, used to indicate the
-  left endpoint of an interval for interval censoring.
-
-  * \code{right}: Equals \code{time}, used to indicate the
-  right endpoint of an interval for interval censoring.}
+variables:
+\itemize{
+\item \code{time}: The number of days between randomization and the
+first drug dispensing visit (first drug dispensing visit date -
+randomization date + 1).
+\item \code{left}: Equals \code{time - 1}, used to indicate the
+left endpoint of an interval for interval censoring.
+\item \code{right}: Equals \code{time}, used to indicate the
+right endpoint of an interval for interval censoring.
+}}
 
 \item{model}{The event model used to analyze the gap time
 between randomization and the first drug dispensing visit when
@@ -34,23 +31,19 @@ parameter values.}
 show the fitted time-to-event bar chart. It defaults to \code{TRUE}.}
 }
 \value{
-A list of results from the model fit that includes
-
-* \code{model}: The specific model used in the analysis.
-
-* \code{theta}: The estimated model parameters.
-
-* \code{vtheta}: The estimated covariance matrix of \code{theta}.
-
-* \code{aic}: The Akaike Information Criterion value for the model fit.
-
-* \code{bic}: The Bayesian Information Criterion value for the model fit.
-
-Additionally, the function provides:
-
-* A fitted time-to-event bar chart.
-
-* Posterior draws of model parameters.
+A list with three components:
+\itemize{
+\item \code{fit}: A list of results from the model fit that includes
+\itemize{
+\item \code{model}: The specific model used in the analysis.
+\item \code{theta}: The estimated model parameters.
+\item \code{vtheta}: The estimated covariance matrix of \code{theta}.
+\item \code{aic}: The Akaike Information Criterion value.
+\item \code{bic}: The Bayesian Information Criterion value.
+}
+\item \code{fit_plot}: A fitted time-to-event bar chart.
+\item \code{theta}: Posterior draws of model parameters.
+}
 }
 \description{
 Fits a specified time-to-event model to the gap time
@@ -72,8 +65,7 @@ vf <- visitview2 \%>\%
   group_by(drug, drug_name, dose_unit, usubjid, treatment,
            treatment_description, arrivalTime,
            time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity),
-            .groups = "drop_last") \%>\%
+  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
   mutate(cum_dose = cumsum(dose)) \%>\%
   group_by(drug, drug_name, dose_unit, usubjid) \%>\%
   mutate(row_id = row_number())
@@ -81,15 +73,22 @@ vf <- visitview2 \%>\%
 vf <- vf \%>\%
   left_join(dosing_schedule_df, by = "drug")
 
+vf1 <- vf \%>\%
+  group_by(usubjid, day) \%>\%
+  slice(n()) \%>\%
+  group_by(usubjid) \%>\%
+  mutate(row_id = row_number())
+
 # time from randomization to the first drug dispensing visit
-df_k0 <- vf \%>\%
+df_k0 <- vf1 \%>\%
   filter(row_id == 1) \%>\%
   mutate(time = day,
          skipped = floor((time - target_days/2)/target_days) + 1)
 
+# no skipping
 df_t0 <- df_k0 \%>\%
   filter(skipped == 0) \%>\%
-  mutate(left = time - 1, right = time, status = 1)
+  mutate(left = time - 1, right = time)
 
 fit_t0 <- f_fit_t0(df_t0, model = "log-logistic", nreps = 200)
 

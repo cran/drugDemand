@@ -2,22 +2,21 @@
 % Please edit documentation in R/f_dispensing_models.R
 \name{f_fit_ti}
 \alias{f_fit_ti}
-\title{Linear Regression Model Fit for Gap Times}
+\title{Model Fitting for Gap Times}
 \usage{
 f_fit_ti(df, model = "lm", nreps, showplot = TRUE)
 }
 \arguments{
 \item{df}{The subject-level dosing data, including the following
-  variables:
-
-  * \code{time}: The gap time to the next drug dispensing visit.
-
-  * \code{skipped}: The number of skipped visits.
-
-  * \code{k1}: The covariate for the linear regression. It equals
-  \code{skipped} for the gap time between randomization and
-  the first drug dispensing visit and \code{skipped + 1}
-  for the gap time between two consecutive drug dispensing visits.}
+variables:
+\itemize{
+\item \code{time}: The gap time to the next drug dispensing visit.
+\item \code{skipped}: The number of skipped visits.
+\item \code{k1}: The covariate for the linear regression. It equals
+\code{skipped} for the gap time between randomization and
+the first drug dispensing visit and \code{skipped + 1}
+for the gap time between two consecutive drug dispensing visits.
+}}
 
 \item{model}{The model used to analyze the gap time.
 Currently, it only supports the linear model ("lm").}
@@ -26,30 +25,24 @@ Currently, it only supports the linear model ("lm").}
 parameter values.}
 
 \item{showplot}{A Boolean variable that controls whether or not to
-show the residual plot. It defaults to \code{TRUE}.}
+show the fitted gap time bar chart. It defaults to \code{TRUE}.}
 }
 \value{
-A list of results from the regression model fit, including
-
-* \code{model}: The specific model used in the analysis.
-
-* \code{beta}: The estimated regression coefficient for the covariate.
-
-* \code{vbeta}: The estimated variance of \code{beta}.
-
-* \code{sigma}: The estimated residual standard deviation.
-
-* \code{df}: The residual degrees-of-freedom.
-
-* \code{aic}: The Akaike Information Criterion value for the model fit.
-
-* \code{bic}: The Bayesian Information Criterion value for the model fit.
-
-Additionally, the function provides:
-
-* A residual plot.
-
-* Posterior draws of model parameters.
+A list with three components:
+\itemize{
+\item \code{fit}: A list of results from the model fit that includes
+\itemize{
+\item \code{model}: The specific model used in the analysis.
+\item \code{beta}: The estimated regression coefficient for the covariate.
+\item \code{vbeta}: The estimated variance of \code{beta}.
+\item \code{sigma}: The estimated residual standard deviation.
+\item \code{df}: The residual degrees-of-freedom.
+\item \code{aic}: The Akaike Information Criterion value.
+\item \code{bic}: The Bayesian Information Criterion value.
+}
+\item \code{fit_plot}: A fitted gap time bar chart.
+\item \code{theta}: Posterior draws of model parameters.
+}
 }
 \description{
 Fits a linear regression model to the gap times.
@@ -69,8 +62,7 @@ vf <- visitview2 \%>\%
   group_by(drug, drug_name, dose_unit, usubjid, treatment,
            treatment_description, arrivalTime,
            time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity),
-            .groups = "drop_last") \%>\%
+  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
   mutate(cum_dose = cumsum(dose)) \%>\%
   group_by(drug, drug_name, dose_unit, usubjid) \%>\%
   mutate(row_id = row_number())
@@ -78,17 +70,19 @@ vf <- visitview2 \%>\%
 vf <- vf \%>\%
   left_join(dosing_schedule_df, by = "drug")
 
-# time from randomization to the first drug dispensing visit
-df_k0 <- vf \%>\%
-  filter(row_id == 1) \%>\%
-  mutate(time = day,
-         skipped = floor((time - target_days/2)/target_days) + 1)
+vf1 <- vf \%>\%
+  group_by(usubjid, day) \%>\%
+  slice(n()) \%>\%
+  group_by(usubjid) \%>\%
+  mutate(row_id = row_number())
 
-df_t1 <- df_k0 \%>\%
-  filter(skipped > 0) \%>\%
-  mutate(k1 = skipped)
+df_ti <- vf1 \%>\%
+  mutate(time = lead(day) - day,
+         skipped = pmax(floor((time - target_days/2)/target_days), 0),
+         k1 = skipped + 1) \%>\%
+  filter(row_id < n())
 
-fit_t1 <- f_fit_ti(df_t1, model = "lm", nreps = 200)
+fit_ti <- f_fit_ti(df_ti, model = "lm", nreps = 200)
 
 }
 \author{

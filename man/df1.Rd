@@ -13,17 +13,17 @@ df1
 \description{
 A data frame with 175 rows and 9 columns:
 \describe{
-  \item{\code{trialsdt}}{The trial start date.}
-  \item{\code{usubjid}}{The unique subject ID.}
-  \item{\code{randdt}}{The randomization date for each subject.}
-  \item{\code{treatment}}{The treatment group.}
-  \item{\code{treatment_description}}{Description of the treatment group.}
-  \item{\code{time}}{The number of days elapsed since randomization.}
-  \item{\code{event}}{The event indicator, with a value of 1 indicating
-  the occurrence of an event, and 0 indicating no event.}
-  \item{\code{dropout}}{The dropout indicator, where 1 corresponds to
-  a dropout and 0 implies no dropout.}
-  \item{\code{cutoffdt}}{The cutoff date.}
+\item{\code{trialsdt}}{The trial start date.}
+\item{\code{usubjid}}{The unique subject ID.}
+\item{\code{randdt}}{The randomization date for each subject.}
+\item{\code{treatment}}{The treatment group.}
+\item{\code{treatment_description}}{Description of the treatment group.}
+\item{\code{time}}{The number of days elapsed since randomization.}
+\item{\code{event}}{The event indicator, with a value of 1 indicating
+the occurrence of an event, and 0 indicating no event.}
+\item{\code{dropout}}{The dropout indicator, where 1 corresponds to
+a dropout and 0 implies no dropout.}
+\item{\code{cutoffdt}}{The cutoff date.}
 For drug demand forecasting, the event of interest is treatment
 discontinuation. The dropout variable is set to 0 for all patients in
 this context.

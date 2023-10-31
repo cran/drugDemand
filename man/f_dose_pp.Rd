@@ -15,9 +15,9 @@ f_dose_pp(
 )
 }
 \arguments{
-\item{dosing_summary_t0}{The cumulative doses dispensed
-before the cutoff date. It contains the following variables:
-\code{drug}, \code{drug_name}, \code{dose_unit},
+\item{dosing_summary_t0}{A data frame for the cumulative doses
+dispensed before the cutoff date. It contains the following
+variables: \code{drug}, \code{drug_name}, \code{dose_unit},
 and \code{cum_dose_t0}.}
 
 \item{newEvents}{A data frame containing the imputed event data
@@ -35,11 +35,11 @@ associated with each drug, including the following variables:
 
 \item{dosing_schedule_df}{A data frame providing dosing schedule
 information. It contains the following variables: \code{drug},
-\code{target_days}, \code{target_kits}, and \code{max_cycles}.}
+\code{target_days}, \code{target_dose}, and \code{max_cycles}.}
 
 \item{t0}{The cutoff date relative to the trial start date.}
 
-\item{t}{A vector of new time points for drug dispensing predictions.}
+\item{t}{A vector of new time points for drug dispensing prediction.}
 
 \item{pilevel}{The prediction interval level.}
 }
@@ -57,7 +57,7 @@ visit and dosing schedules.
 \examples{
 
 \donttest{
-# Design stage drug demand predictions per protocol.
+# Design stage drug demand forecasting per protocol.
 
 set.seed(312)
 library(dplyr)

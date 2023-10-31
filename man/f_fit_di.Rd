@@ -2,7 +2,7 @@
 % Please edit documentation in R/f_dispensing_models.R
 \name{f_fit_di}
 \alias{f_fit_di}
-\title{Linear Mixed-Effects Model Fit for Dispensed Doses}
+\title{Model Fitting for Dispensed Doses}
 \usage{
 f_fit_di(df, model, nreps, showplot = TRUE)
 }
@@ -11,39 +11,39 @@ f_fit_di(df, model, nreps, showplot = TRUE)
 \code{day}, \code{drug}, and \code{dose}.}
 
 \item{model}{The model used to analyze the dispensed doses, with
-options including "constant", "lm" (linear model), and
-"lme" (linear mixed-effects model).}
+options including "constant", "lm" for linear model, and
+"lme" for linear mixed-effects model.}
 
 \item{nreps}{The number of simulations for drawing posterior model
 parameters.}
 
 \item{showplot}{A Boolean variable that controls whether or not to
-show the residual plot. It defaults to \code{TRUE}.}
+show the fitted dose bar chart. It defaults to \code{TRUE}.}
 }
 \value{
-A list of results from the model fit, including
-
-* \code{model}: The specific model used in the analysis.
-
-* \code{mud}: The estimated mean dose.
-
-* \code{vmud}: The estimated variance of \code{mud}.
-
-* \code{sigmab}: The estimated between-subject standard deviation.
-
-* \code{sigmae}: The estimated within-subject residual standard deviation.
-
-* \code{aic}: The Akaike Information Criterion value for the model fit.
-
-* \code{bic}: The Bayesian Information Criterion value for the model fit.
-
-Additionaly, the function provies:
-
-* A residual plot.
-
-* Posterior draws of model parameters.
-
-* Subject random effects.
+A list with three components:
+\itemize{
+\item \code{fit}: A list of results from the model fit that includes
+\itemize{
+\item \code{model}: The specific model used in the analysis.
+\item \code{mud}: The estimated mean dose.
+\item \code{vmud}: The estimated variance of \code{mud}.
+\item \code{sigmab}: The estimated between-subject standard deviation.
+\item \code{sigmae}: The estimated within-subject residual standard
+deviation.
+\item \code{aic}: The Akaike Information Criterion value.
+\item \code{bic}: The Bayesian Information Criterion value.
+}
+\item \code{fit_plot}: A fitted dose bar chart.
+\item \code{theta}: Posterior draws of model parameters.
+\itemize{
+\item \code{fixed}: Posterior draws of fixed model parameters:
+\code{mud}, \code{sigmab}, and \code{sigmae}.
+\item \code{random}: Posterior draws of subject random effects.
+\item \code{usubjid}: The unique subject ID associated with
+the subject random effects.
+}
+}
 }
 \description{
 Fits a linear mixed-effects model to the dispensed doses.
@@ -63,14 +63,13 @@ vf <- visitview2 \%>\%
   group_by(drug, drug_name, dose_unit, usubjid, treatment,
            treatment_description, arrivalTime,
            time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity),
-            .groups = "drop_last") \%>\%
+  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
   mutate(cum_dose = cumsum(dose)) \%>\%
   group_by(drug, drug_name, dose_unit, usubjid) \%>\%
   mutate(row_id = row_number())
 
 vf1 <- vf \%>\% filter(drug == 3)
-fit_di <- f_fit_di(vf1, model = "lm", nreps = 200)
+fit_di <- f_fit_di(vf1, model = "lme", nreps = 200)
 
 }
 \author{

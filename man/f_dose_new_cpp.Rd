@@ -30,14 +30,18 @@ f_dose_new_cpp(
 
 \item{D}{The discontinuation date relative to randomization.}
 
-\item{model_k0}{The model for the number of skipped visits between
-randomization and the first drug dispensing visit.}
+\item{model_k0}{The model for the number of skipped
+visits between randomization and the first drug dispensing visit.
+Options include "constant", "poisson", "zip" for zero-inflated
+Poisson, and "nb" for negative binomial.}
 
 \item{theta_k0}{The model parameters for the number of skipped
 visits between randomization and the first drug dispensing visit.}
 
 \item{model_t0}{The model for the gap time between randomization
-and the first drug dispensing visit when there is no visit skipping.}
+and the first drug dispensing visit when there is no visit skipping.
+Options include "constant", "exponential", "weibull",
+"log-logistic", and "log-normal".}
 
 \item{theta_t0}{The model parameters for the gap time between
 randomization and the first drug dispensing visit when there is
@@ -51,8 +55,10 @@ when there is visit skipping.}
 for the gap time between randomization and the first drug
 dispensing visit when there is visit skipping.}
 
-\item{model_ki}{The model for the number of skipped visits between
-two consecutive drug dispensing visits.}
+\item{model_ki}{The model for the number of skipped
+visits between two consecutive drug dispensing visits.
+Options include "constant", "poisson", "zip" for zero-inflated
+Poisson, and "nb" for negative binomial.}
 
 \item{theta_ki}{The model parameters for the number of skipped
 visits between two consecutive drug dispensing visits.}
@@ -65,10 +71,10 @@ gap time between two consecutive drug dispensing visits.}
 }
 \value{
 A data frame with two variables:
-
-* \code{usubjid}: The unique subject ID.
-
-* \code{day}: The dosing visit date relative to randomization.
+\itemize{
+\item \code{usubjid}: The unique subject ID.
+\item \code{day}: The dosing visit date relative to randomization.
+}
 }
 \description{
 Imputes the dosing dates for new patients and ongoing

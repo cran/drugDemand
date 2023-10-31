@@ -2,7 +2,7 @@
 % Please edit documentation in R/f_dispensing_models.R
 \name{f_fit_ki}
 \alias{f_fit_ki}
-\title{Count Model Fit for Number of Skipped Visits}
+\title{Model Fitting for Number of Skipped Visits}
 \usage{
 f_fit_ki(df, model, nreps, showplot = TRUE)
 }
@@ -13,7 +13,7 @@ indicate the number of skipped visits.}
 \item{model}{The count model used to analyze the number of
 skipped visits, with options including
 "constant", "poisson", "zip" for zero-inflated Poisson, and
-"zinb" for zero-inflated negative binomial.}
+"nb" for negative binomial.}
 
 \item{nreps}{The number of simulations for drawing posterior model
 parameter values.}
@@ -22,23 +22,19 @@ parameter values.}
 show the fitted count bar chart. It defaults to \code{TRUE}.}
 }
 \value{
-A list of results from the model fit that includes
-
-* \code{model}: The specific model used in the analysis.
-
-* \code{theta}: The estimated model parameters.
-
-* \code{vtheta}: The estimated covariance matrix of \code{theta}.
-
-* \code{aic}: The Akaike Information Criterion value for the model fit.
-
-* \code{bic}: The Bayesian Information Criterion value for the model fit.
-
-Additionally, the function provides:
-
-* A fitted count bar chart.
-
-* Posterior draws of model parameters.
+A list with three components:
+\itemize{
+\item \code{fit}: A list of results from the model fit that includes
+\itemize{
+\item \code{model}: The specific model used in the analysis.
+\item \code{theta}: The estimated model parameters.
+\item \code{vtheta}: The estimated covariance matrix of \code{theta}.
+\item \code{aic}: The Akaike Information Criterion value.
+\item \code{bic}: The Bayesian Information Criterion value.
+}
+\item \code{fit_plot}: A fitted count bar chart.
+\item \code{theta}: Posterior draws of model parameters.
+}
 }
 \description{
 Fits a count model to the number of skipped visits.
@@ -58,8 +54,7 @@ vf <- visitview2 \%>\%
   group_by(drug, drug_name, dose_unit, usubjid, treatment,
            treatment_description, arrivalTime,
            time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity),
-            .groups = "drop_last") \%>\%
+  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
   mutate(cum_dose = cumsum(dose)) \%>\%
   group_by(drug, drug_name, dose_unit, usubjid) \%>\%
   mutate(row_id = row_number())
@@ -67,13 +62,19 @@ vf <- visitview2 \%>\%
 vf <- vf \%>\%
   left_join(dosing_schedule_df, by = "drug")
 
-# time from randomization to the first drug dispensing visit
-df_k0 <- vf \%>\%
-  filter(row_id == 1) \%>\%
-  mutate(time = day,
-         skipped = floor((time - target_days/2)/target_days) + 1)
+vf1 <- vf \%>\%
+  group_by(usubjid, day) \%>\%
+  slice(n()) \%>\%
+  group_by(usubjid) \%>\%
+  mutate(row_id = row_number())
 
-fit_k0 <- f_fit_ki(df_k0, model = "zip", nreps = 200)
+df_ti <- vf1 \%>\%
+  mutate(time = lead(day) - day,
+         skipped = pmax(floor((time - target_days/2)/target_days), 0),
+         k1 = skipped + 1) \%>\%
+  filter(row_id < n())
+
+fit_ki <- f_fit_ki(df_ti, model = "zip", nreps = 200)
 
 }
 \author{

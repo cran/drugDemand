@@ -15,8 +15,10 @@ f_dose_ongoing_cpp(usubjid, V, C, D, model_ki, theta_ki, muT, sigmaT)
 
 \item{D}{The discontinuation date relative to randomization.}
 
-\item{model_ki}{The model for the number of skipped visits between
-two consecutive drug dispensing visits.}
+\item{model_ki}{The model for the number of skipped
+visits between two consecutive drug dispensing visits.
+Options include "constant", "poisson", "zip" for zero-inflated
+Poisson, and "nb" for negative binomial.}
 
 \item{theta_ki}{The model parameters for the number of skipped visits
 between two consecutive drug dispensing visits.}
@@ -29,10 +31,10 @@ for the gap time between two consecutive drug dispensing visits.}
 }
 \value{
 A data frame with two variables:
-
-* \code{usubjid}: The unique subject ID.
-
-* \code{day}: The dosing visit date relative to randomization.
+\itemize{
+\item \code{usubjid}: The unique subject ID.
+\item \code{day}: The dosing visit date relative to randomization.
+}
 }
 \description{
 Imputes the dosing dates after cutoff for ongoing

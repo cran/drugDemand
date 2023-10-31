@@ -2,7 +2,7 @@
 % Please edit documentation in R/f_drug_demand.R
 \name{f_drug_demand}
 \alias{f_drug_demand}
-\title{Drug Demand Prediction}
+\title{Drug Demand Forecasting}
 \usage{
 f_drug_demand(
   df = NULL,
@@ -15,10 +15,9 @@ f_drug_demand(
   model_t0 = "exponential",
   model_ki = "zip",
   model_di = "lme",
-  pilevel = 0.9,
-  nyears = 4,
-  nreps = 500,
-  n.cores.max = 10,
+  pilevel = 0.95,
+  nyears = 2,
+  ncores_max = 10,
   showplot = TRUE
 )
 }
@@ -49,75 +48,109 @@ It must be specified at the design stage. It will be replaced with
 the observed information at the analysis stage.}
 
 \item{treatment_by_drug}{The indicator matrix of treatment by drug
-combinations.}
+combinations. It must be specified at the design stage. It will
+be replaced with the observed information at the analysis stage.}
 
 \item{dosing_schedule_df}{A data frame providing dosing schedule
 information. It contains the following variables: \code{drug},
-\code{target_days}, \code{target_kits}, and \code{max_cycles}.}
+\code{target_days}, \code{target_dose}, and \code{max_cycles}.}
 
 \item{model_k0}{The model for the number of skipped
-visits between randomization and the first drug dispensing visit.}
+visits between randomization and the first drug dispensing visit.
+Options include "constant", "poisson", "zip" for zero-inflated
+Poisson, and "nb" for negative binomial.}
 
 \item{model_t0}{The model for the gap time between randomization
-and the first drug dispensing visit when there is no visit skipping.}
+and the first drug dispensing visit when there is no visit skipping.
+Options include "constant", "exponential", "weibull",
+"log-logistic", and "log-normal".}
 
 \item{model_ki}{The model for the number of skipped
-visits between two consecutive drug dispensing visits.}
+visits between two consecutive drug dispensing visits.
+Options include "constant", "poisson", "zip" for zero-inflated
+Poisson, and "nb" for negative binomial.}
 
 \item{model_di}{The model for the dispensed doses at drug
-dispensing visits.}
+dispensing visits. Options include "constant",
+"lm" for linear model, and "lme" for linear mixed-effects model.}
 
 \item{pilevel}{The prediction interval level.}
 
 \item{nyears}{The number of years after the data cut for prediction.}
 
-\item{nreps}{The number of replications for simulation.}
-
-\item{n.cores.max}{The maximum number of cores to use for parallel
-computing. The actual number of cores used will be the minimum of
-\code{n.cores.max} and half of the detected number of cores.}
+\item{ncores_max}{The maximum number of cores to use for parallel
+computing. The actual number of cores used is the minimum of
+\code{ncores_max} and half of the detected number of cores.}
 
 \item{showplot}{A Boolean variable that controls whether or not to
 show the drug dispensing model fit and drug demand prediction
 plots. It defaults to \code{TRUE}.}
 }
 \value{
-A list with the following components:
+For design-stage drug demand forecasting, a list with the
+following components:
+\itemize{
+\item \code{dosing_pred_pp}: A data frame for dosing summary by drug and
+time point per protocol. It includes the following variables: \code{drug},
+\code{drug_name}, \code{dose_unit}, \code{t}, \code{n}, \code{pilevel},
+\code{lower}, \code{upper}, \code{mean}, and \code{var}.
+\item \code{dosing_pred_plot}: A plot object for dosing prediction.
+}
 
-* \code{common_time_model} A Boolean variable that indicates whether
-a common time model is used for drug dispensing visits.
-
-* \code{fit_k0} The model fit for the number of skipped
-visits between randomization and the first drug dispensing visit.
-
-* \code{fit_t0} The model fit for the gap time between randomization
-and the first drug dispensing visit when there is no visit skipping.
-
-* \code{fit_t1} The model fit for the gap time between randomization
-and the first drug dispensing visit when there is visit skipping.
-
-* \code{fit_ki} The model fit for the number of skipped
-visits between two consecutive drug dispensing visits.
-
-* \code{fit_ti} The model fit for the gap time between two
+For analysis-stage drug demand forecasting, a list with the
+following components:
+\itemize{
+\item \code{trialsdt}: The trial start date.
+\item \code{cutoffdt}: The cutoff date.
+\item \code{dosing_summary_t0}: A data frame for the cumulative doses
+dispensed before the cutoff date. It contains the following
+variables: \code{drug}, \code{drug_name}, \code{dose_unit}, and
+\code{cum_dose_t0}.
+\item \code{cum_dispense_plot}: The step plot for the cumulative doses
+dispensed for each drug.
+\item \code{bar_t0_plot}: The bar chart for the time between
+randomization and the first drug dispensing visit.
+\item \code{bar_ti_plot}: The bar chart for the gap time between two
 consecutive drug dispensing visits.
-
-* \code{fit_di} The model fit for the dispensed doses at drug
+\item \code{bar_di_plot}: The bar chart for the doses dispensed at drug
 dispensing visits.
-
-* \code{dosing_subject} A data frame for the observed and imputed
-subject-level dosing records.
-
-* \code{dosing_pred_df} A data frame for dosing summary by drug and
-time point.
-
-* \code{dosing_pred_pp} A data frame for dosing summary by drug and
-time point per protocol.
-
-* \code{dosing_pred_plot} A plot object for dosing prediction.
+\item \code{common_time_model}: A Boolean variable that indicates
+whether a common time model is used for drug dispensing visits.
+\item \code{fit_k0}: The model fit for the number of skipped
+visits between randomization and the first drug dispensing visit.
+\item \code{fit_t0}: The model fit for the gap time between
+randomization and the first drug dispensing visit when there is
+no visit skipping.
+\item \code{fit_t1}: The model fit for the gap time between
+randomization and the first drug dispensing visit when there is
+visit skipping.
+\item \code{fit_ki}: The model fit for the number of skipped
+visits between two consecutive drug dispensing visits.
+\item \code{fit_ti}: The model fit for the gap time between two
+consecutive drug dispensing visits.
+\item \code{fit_di}: The model fit for the dispensed doses at drug
+dispensing visits.
+\item \code{dosing_subject}: A data frame for the observed and imputed
+subject-level dosing records for the first iteration. It includes
+the following variables: \code{drug}, \code{drug_name}, \code{dose_unit},
+\code{usubjid}, \code{treatment}, \code{treatment_description},
+\code{arrivalTime}, \code{time}, \code{day}, \code{dose},
+\code{cum_dose}, \code{row_id}, \code{subject_type}, \code{imputed},
+\code{trialsdt}, \code{cutoffdt}, \code{randdt}, \code{adt}, and
+\code{date}.
+\item \code{dosing_pred_df}: A data frame for dosing summary by drug and
+time point. It includes the following variables: \code{drug},
+\code{drug_name}, \code{dose_unit}, \code{t}, \code{n}, \code{pilevel},
+\code{lower}, \code{upper}, \code{mean}, \code{var}, and \code{date}.
+\item \code{dosing_pred_pp}: A data frame for dosing summary by drug and
+time point per protocol. It includes the following variables: \code{drug},
+\code{drug_name}, \code{dose_unit}, \code{t}, \code{n}, \code{pilevel},
+\code{lower}, \code{upper}, \code{mean}, \code{var}, and \code{date}.
+\item \code{dosing_pred_plot}: A plot object for dosing prediction.
+}
 }
 \description{
-Obtains drug demand prediction via modeling and
+Obtains drug demand forecasting via modeling and
 simulation.
 }
 \examples{
@@ -144,11 +177,10 @@ tictoc::toc()
 
 tictoc::tic("drug demand prediction")
 
-a <- f_drug_demand(
+drug_demand <- f_drug_demand(
   df = df2,
   newEvents = pred$event_pred$newEvents,
   visitview = visitview2,
-  treatment_by_drug = treatment_by_drug,
   dosing_schedule_df = dosing_schedule_df,
   model_k0 = "zip",
   model_t0 = "log-logistic",
@@ -156,15 +188,18 @@ a <- f_drug_demand(
   model_di = "lme",
   pilevel = 0.95,
   nyears = 1,
-  nreps = 200,
-  n.cores.max = 2,
+  ncores_max = 2,
   showplot = FALSE)
 
 tictoc::toc()
 
-a$dosing_pred_plot
+drug_demand$dosing_pred_plot
 }
 
+}
+\seealso{
+\code{\link{f_fit_t0}}, \code{\link{f_fit_ki}},
+\code{\link{f_fit_ti}}, \code{\link{f_fit_di}}
 }
 \author{
 Kaifeng Lu, \email{kaifenglu@gmail.com}

@@ -9,8 +9,10 @@
 #' @param V The last dosing visit date relative to randomization.
 #' @param C The cutoff date relative to randomization.
 #' @param D The discontinuation date relative to randomization.
-#' @param model_ki The model for the number of skipped visits between
-#'   two consecutive drug dispensing visits.
+#' @param model_ki The model for the number of skipped
+#'   visits between two consecutive drug dispensing visits.
+#'   Options include "constant", "poisson", "zip" for zero-inflated
+#'   Poisson, and "nb" for negative binomial.
 #' @param theta_ki The model parameters for the number of skipped visits
 #'   between two consecutive drug dispensing visits.
 #' @param muT The regression coefficient for the linear model for the
@@ -47,12 +49,16 @@ f_dose_ongoing_cpp <- function(usubjid, V, C, D, model_ki, theta_ki, muT, sigmaT
 #' @param V Initialized to 0 and corresponds to the randomization visit.
 #' @param C The cutoff date relative to randomization.
 #' @param D The discontinuation date relative to randomization.
-#' @param model_k0 The model for the number of skipped visits between
-#'   randomization and the first drug dispensing visit.
+#' @param model_k0 The model for the number of skipped
+#'   visits between randomization and the first drug dispensing visit.
+#'   Options include "constant", "poisson", "zip" for zero-inflated
+#'   Poisson, and "nb" for negative binomial.
 #' @param theta_k0 The model parameters for the number of skipped
 #'   visits between randomization and the first drug dispensing visit.
 #' @param model_t0 The model for the gap time between randomization
 #'   and the first drug dispensing visit when there is no visit skipping.
+#'   Options include "constant", "exponential", "weibull",
+#'   "log-logistic", and "log-normal".
 #' @param theta_t0 The model parameters for the gap time between
 #'   randomization and the first drug dispensing visit when there is
 #'   no visit skipping.
@@ -62,8 +68,10 @@ f_dose_ongoing_cpp <- function(usubjid, V, C, D, model_ki, theta_ki, muT, sigmaT
 #' @param sigma0 The residual standard deviation for the linear model
 #'   for the gap time between randomization and the first drug
 #'   dispensing visit when there is visit skipping.
-#' @param model_ki The model for the number of skipped visits between
-#'   two consecutive drug dispensing visits.
+#' @param model_ki The model for the number of skipped
+#'   visits between two consecutive drug dispensing visits.
+#'   Options include "constant", "poisson", "zip" for zero-inflated
+#'   Poisson, and "nb" for negative binomial.
 #' @param theta_ki The model parameters for the number of skipped
 #'   visits between two consecutive drug dispensing visits.
 #' @param muT The regression coefficient for the linear model for the gap

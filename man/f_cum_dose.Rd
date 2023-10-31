@@ -7,13 +7,13 @@
 f_cum_dose(x, w, d, N)
 }
 \arguments{
-\item{x}{The treatment duration.}
+\item{x}{Treatment duration.}
 
-\item{w}{The number of days per treatment cycle for the drug.}
+\item{w}{Number of days per treatment cycle.}
 
-\item{d}{The number of kits per treatment cycle for the drug.}
+\item{d}{Dose per treatment cycle.}
 
-\item{N}{The maximum number of treatment cycles for the drug.}
+\item{N}{Maximum number of treatment cycles.}
 }
 \value{
 The cumulative dose to dispense for the drug over a specified

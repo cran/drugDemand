@@ -2,11 +2,11 @@
 % Please edit documentation in R/f_dispensing_models.R
 \name{f_dispensing_models}
 \alias{f_dispensing_models}
-\title{Drug Dispensing Model Fit}
+\title{Drug Dispensing Model Fitting}
 \usage{
 f_dispensing_models(
-  target_days,
   vf,
+  dosing_schedule_df,
   model_k0,
   model_t0,
   model_ki,
@@ -16,9 +16,6 @@ f_dispensing_models(
 )
 }
 \arguments{
-\item{target_days}{A vector of target number of days between two
-drug dispensing visits by drug.}
-
 \item{vf}{A data frame for subject-level drug dispensing data,
 including the following variables:
 \code{drug}, \code{drug_name}, \code{dose_unit},
@@ -26,17 +23,28 @@ including the following variables:
 \code{arrivalTime}, \code{time}, \code{event}, \code{dropout},
 \code{day}, \code{dose}, \code{cum_dose}, and \code{row_id}.}
 
+\item{dosing_schedule_df}{A data frame providing dosing schedule
+information. It contains the following variables: \code{drug},
+\code{target_days}, \code{target_dose}, and \code{max_cycles}.}
+
 \item{model_k0}{The model for the number of skipped
-visits between randomization and the first drug dispensing visit.}
+visits between randomization and the first drug dispensing visit.
+Options include "constant", "poisson", "zip" for zero-inflated
+Poisson, and "nb" for negative binomial.}
 
 \item{model_t0}{The model for the gap time between randomization
-and the first drug dispensing visit when there is no visit skipping.}
+and the first drug dispensing visit when there is no visit skipping.
+Options include "constant", "exponential", "weibull",
+"log-logistic", and "log-normal".}
 
 \item{model_ki}{The model for the number of skipped
-visits between two consecutive drug dispensing visits.}
+visits between two consecutive drug dispensing visits.
+Options include "constant", "poisson", "zip" for zero-inflated
+Poisson, and "nb" for negative binomial.}
 
 \item{model_di}{The model for the dispensed doses at drug
-dispensing visits.}
+dispensing visits. Options include "constant",
+"lm" for linear model, and "lme" for linear mixed-effects model.}
 
 \item{nreps}{The number of simulations for drawing posterior model
 parameters.}
@@ -46,27 +54,24 @@ show the model fit plot. It defaults to \code{TRUE}.}
 }
 \value{
 A list with the following components:
-
-* \code{common_time_model} A Boolean variable that indicates whether
-a common time model is used for drug dispensing visits.
-
-* \code{fit_k0} The model fit for the number of skipped
+\itemize{
+\item \code{common_time_model}: A Boolean variable that indicates
+whether a common time model is used for drug dispensing visits.
+\item \code{fit_k0}: The model fit for the number of skipped
 visits between randomization and the first drug dispensing visit.
-
-* \code{fit_t0} The model fit for the gap time between randomization
-and the first drug dispensing visit when there is no visit skipping.
-
-* \code{fit_t1} The model fit for the gap time between randomization
-and the first drug dispensing visit when there is visit skipping.
-
-* \code{fit_ki} The model fit for the number of skipped
+\item \code{fit_t0}: The model fit for the gap time between
+randomization and the first drug dispensing visit when there is
+no visit skipping.
+\item \code{fit_t1}: The model fit for the gap time between
+randomization and the first drug dispensing visit when there is
+visit skipping.
+\item \code{fit_ki}: The model fit for the number of skipped
 visits between two consecutive drug dispensing visits.
-
-* \code{fit_ti} The model fit for the gap time between two
+\item \code{fit_ti}: The model fit for the gap time between two
 consecutive drug dispensing visits.
-
-* \code{fit_di} The model fit for the dispensed doses at drug
+\item \code{fit_di}: The model fit for the dispensed doses at drug
 dispensing visits.
+}
 }
 \description{
 Fits drug dispensing models to the observed drug
@@ -87,19 +92,22 @@ vf <- visitview2 \%>\%
   group_by(drug, drug_name, dose_unit, usubjid, treatment,
            treatment_description, arrivalTime,
            time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity),
-            .groups = "drop_last") \%>\%
+  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
   mutate(cum_dose = cumsum(dose)) \%>\%
   group_by(drug, drug_name, dose_unit, usubjid) \%>\%
   mutate(row_id = row_number())
 
-fit <- f_dispensing_models(
-  target_days = dosing_schedule_df$target_days, vf,
+dispensing_models <- f_dispensing_models(
+  vf, dosing_schedule_df,
   model_k0 = "zip", model_t0 = "log-logistic",
   model_ki = "zip", model_di = "lme",
   nreps = 200, showplot = FALSE)
 
-fit$fit_ki$fit_plot
+dispensing_models$fit_ki$fit_plot
+}
+\seealso{
+\code{\link{f_fit_t0}}, \code{\link{f_fit_ki}},
+\code{\link{f_fit_ti}}, \code{\link{f_fit_di}}
 }
 \author{
 Kaifeng Lu, \email{kaifenglu@gmail.com}

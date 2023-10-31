@@ -21,16 +21,14 @@ associated with each drug, including the following variables:
 \code{dose_unit}.
 }
 \description{
-Obtains a data frame that indicates the treatment(s)
+Obtains a data frame that indicates the treatments
 associated with each drug.
 }
 \examples{
 
 drug_name = drug_description_df$drug_name
 dose_unit = drug_description_df$dose_unit
-treatment_by_drug_df <- f_treatment_by_drug_df(
-  treatment_by_drug, drug_name, dose_unit)
-treatment_by_drug_df
+f_treatment_by_drug_df(treatment_by_drug, drug_name, dose_unit)
 
 }
 \author{

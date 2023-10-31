@@ -11,8 +11,10 @@ using namespace Rcpp;
 //' @param V The last dosing visit date relative to randomization.
 //' @param C The cutoff date relative to randomization.
 //' @param D The discontinuation date relative to randomization.
-//' @param model_ki The model for the number of skipped visits between
-//'   two consecutive drug dispensing visits.
+//' @param model_ki The model for the number of skipped
+//'   visits between two consecutive drug dispensing visits.
+//'   Options include "constant", "poisson", "zip" for zero-inflated
+//'   Poisson, and "nb" for negative binomial.
 //' @param theta_ki The model parameters for the number of skipped visits
 //'   between two consecutive drug dispensing visits.
 //' @param muT The regression coefficient for the linear model for the
@@ -69,22 +71,18 @@ DataFrame f_dose_ongoing_cpp(const StringVector usubjid,
       } else {
         ki = R::rpois(theta_ki(1));
       }
-    } else if (model_ki == "zinb") {
-      z = R::rbinom(1, theta_ki(0));
-      if (z == 1) {
-        ki = 0; // extra zeros
-      } else {
-        ki = R::rnbinom(theta_ki(1), theta_ki(2));
-      }
+    } else if (model_ki == "nb") {
+      ki = R::rnbinom(theta_ki(0), theta_ki(1));
     } else {
       ki = 0;
+      stop("incorrect model for ki");
     }
 
-    // time from Vi to the first drug dispensing visit after data cut
+    // gap time to the first drug dispensing visit after data cut
     Ti = rtnormcpp((ki+1)*muT, sigmaT, C(i) - Vi, R_PosInf);
     Ti = std::max(std::round(Ti), C(i) - Vi + 1.0);
 
-    while (Vi + Ti <= D(i)) {
+    while (Vi + Ti < D(i)) {
       // next dispensing visit
       Vi = Vi + Ti;
 
@@ -104,18 +102,14 @@ DataFrame f_dose_ongoing_cpp(const StringVector usubjid,
         } else {
           ki = R::rpois(theta_ki(1));
         }
-      } else if (model_ki == "zinb") {
-        z = R::rbinom(1, theta_ki(0));
-        if (z == 1) {
-          ki = 0; // extra zeros
-        } else {
-          ki = R::rnbinom(theta_ki(1), theta_ki(2));
-        }
+      } else if (model_ki == "nb") {
+        ki = R::rnbinom(theta_ki(0), theta_ki(1));
       } else {
         ki = 0;
+        stop("incorrect model for ki");
       }
 
-      // time from Vi to the next drug dispensing visit
+      // gap time to the next drug dispensing visit
       Ti = rtnormcpp((ki+1)*muT, sigmaT, 0, R_PosInf);
       Ti = std::max(std::round(Ti), 1.0);
     }
@@ -138,12 +132,16 @@ DataFrame f_dose_ongoing_cpp(const StringVector usubjid,
 //' @param V Initialized to 0 and corresponds to the randomization visit.
 //' @param C The cutoff date relative to randomization.
 //' @param D The discontinuation date relative to randomization.
-//' @param model_k0 The model for the number of skipped visits between
-//'   randomization and the first drug dispensing visit.
+//' @param model_k0 The model for the number of skipped
+//'   visits between randomization and the first drug dispensing visit.
+//'   Options include "constant", "poisson", "zip" for zero-inflated
+//'   Poisson, and "nb" for negative binomial.
 //' @param theta_k0 The model parameters for the number of skipped
 //'   visits between randomization and the first drug dispensing visit.
 //' @param model_t0 The model for the gap time between randomization
 //'   and the first drug dispensing visit when there is no visit skipping.
+//'   Options include "constant", "exponential", "weibull",
+//'   "log-logistic", and "log-normal".
 //' @param theta_t0 The model parameters for the gap time between
 //'   randomization and the first drug dispensing visit when there is
 //'   no visit skipping.
@@ -153,8 +151,10 @@ DataFrame f_dose_ongoing_cpp(const StringVector usubjid,
 //' @param sigma0 The residual standard deviation for the linear model
 //'   for the gap time between randomization and the first drug
 //'   dispensing visit when there is visit skipping.
-//' @param model_ki The model for the number of skipped visits between
-//'   two consecutive drug dispensing visits.
+//' @param model_ki The model for the number of skipped
+//'   visits between two consecutive drug dispensing visits.
+//'   Options include "constant", "poisson", "zip" for zero-inflated
+//'   Poisson, and "nb" for negative binomial.
 //' @param theta_ki The model parameters for the number of skipped
 //'   visits between two consecutive drug dispensing visits.
 //' @param muT The regression coefficient for the linear model for the gap
@@ -210,7 +210,6 @@ DataFrame f_dose_new_cpp(const StringVector usubjid,
 
     // generate the number of skipped visits between randomization and
     // the first drug dispensing visit
-    // repeat for the next dispensing visit
     if (model_k0 == "constant") {
       ki = theta_k0(0);
     } else if (model_k0 == "poisson") {
@@ -222,26 +221,22 @@ DataFrame f_dose_new_cpp(const StringVector usubjid,
       } else {
         ki = R::rpois(theta_k0(1));
       }
-    } else if (model_k0 == "zinb") {
-      z = R::rbinom(1, theta_k0(0));
-      if (z == 1) {
-        ki = 0; // extra zeros
-      } else {
-        ki = R::rnbinom(theta_k0(1), theta_k0(2));
-      }
+    } else if (model_k0 == "nb") {
+      ki = R::rnbinom(theta_k0(0), theta_k0(1));
     } else {
       ki = 0;
+      stop("incorrect model for k0");
     }
 
     // generate the gap time between randomization and the first
     // drug dispensing visit
     if (ki == 0) {
       // simulate the gap time between randomization and the first
-      // drug dispensing visit in the absence of skipping visits
+      // drug dispensing visit when there is no visit skipping
       if (C(i) >= 0) {
         // draw from truncated distributions for ongoing patients
         if (model_t0 == "constant") {
-          if (theta_t0(0) >= C(i) - Vi) {
+          if (theta_t0(0) > C(i) - Vi) {
             Ti = theta_t0(0);
           } else {
             Ti = C(i) - Vi;
@@ -276,15 +271,16 @@ DataFrame f_dose_new_cpp(const StringVector usubjid,
         } else if (model_t0 == "log-logistic") {
           Ti = exp(R::rlogis(theta_t0(0), theta_t0(1)));
         } else if (model_t0 == "log-normal") {
-          Ti = exp(R::rnorm(theta_t0(0), theta_t0(1)));
+          Ti = R::rlnorm(theta_t0(0), theta_t0(1));
         } else {
           Ti = 0;
+          stop("incorrect model for T0");
         }
         Ti = std::max(std::floor(Ti), 0.0);
       }
     } else {
       // simulate the gap time between randomization and the first
-      // drug dispensing visit in the presence of skipping visits
+      // drug dispensing visit when there is visit skipping
       if (C(i) >= 0) { // draw from truncated normal for ongoing patients
         Ti = rtnormcpp(ki*mu0, sigma0, C(i) - Vi, R_PosInf);
         Ti = std::max(std::round(Ti), C(i) - Vi + 1.0);
@@ -295,7 +291,7 @@ DataFrame f_dose_new_cpp(const StringVector usubjid,
     }
 
     // generate drug dispensing visits
-    while (Vi + Ti <= D(i)) {
+    while (Vi + Ti < D(i)) {
       // next dispensing visit
       Vi = Vi + Ti;
 
@@ -303,7 +299,8 @@ DataFrame f_dose_new_cpp(const StringVector usubjid,
       subject.push_back(usubjid(i));
       day.push_back(Vi + 1);
 
-      // repeat for the next dispensing visit
+      // generate the number of skipped visits to the next
+      // drug dispensing visit
       if (model_ki == "constant") {
         ki = theta_ki(0);
       } else if (model_ki == "poisson") {
@@ -315,18 +312,14 @@ DataFrame f_dose_new_cpp(const StringVector usubjid,
         } else {
           ki = R::rpois(theta_ki(1));
         }
-      } else if (model_ki == "zinb") {
-        z = R::rbinom(1, theta_ki(0));
-        if (z == 1) {
-          ki = 0; // extra zeros
-        } else {
-          ki = R::rnbinom(theta_ki(1), theta_ki(2));
-        }
+      } else if (model_ki == "nb") {
+        ki = R::rnbinom(theta_ki(0), theta_ki(1));
       } else {
         ki = 0;
+        stop("incorrect model for ki");
       }
 
-      // time from Vi to the next drug dispensing visit
+      // gap time to the next drug dispensing visit
       Ti = rtnormcpp((ki+1)*muT, sigmaT, 0, R_PosInf);
       Ti = std::max(std::round(Ti), 1.0);
     }
