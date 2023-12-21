@@ -4,7 +4,7 @@
 \alias{f_fit_ti}
 \title{Model Fitting for Gap Times}
 \usage{
-f_fit_ti(df, model = "lm", nreps, showplot = TRUE)
+f_fit_ti(df, model, nreps, showplot = TRUE)
 }
 \arguments{
 \item{df}{The subject-level dosing data, including the following
@@ -18,8 +18,8 @@ the first drug dispensing visit and \code{skipped + 1}
 for the gap time between two consecutive drug dispensing visits.
 }}
 
-\item{model}{The model used to analyze the gap time.
-Currently, it only supports the linear model ("lm").}
+\item{model}{The model used to analyze the gap time. Options include
+"least squares" and "least absolute deviations".}
 
 \item{nreps}{The number of simulations for drawing posterior model
 parameter values.}
@@ -45,7 +45,8 @@ A list with three components:
 }
 }
 \description{
-Fits a linear regression model to the gap times.
+Fits a linear regression model to the gap time
+between two consecutive drug dispensing visits.
 }
 \examples{
 library(dplyr)
@@ -82,7 +83,7 @@ df_ti <- vf1 \%>\%
          k1 = skipped + 1) \%>\%
   filter(row_id < n())
 
-fit_ti <- f_fit_ti(df_ti, model = "lm", nreps = 200)
+fit_ti <- f_fit_ti(df_ti, model = "least squares", nreps = 200)
 
 }
 \author{

@@ -11,8 +11,8 @@ f_fit_di(df, model, nreps, showplot = TRUE)
 \code{day}, \code{drug}, and \code{dose}.}
 
 \item{model}{The model used to analyze the dispensed doses, with
-options including "constant", "lm" for linear model, and
-"lme" for linear mixed-effects model.}
+options including "constant", "linear model", and
+"linear mixed-effects model".}
 
 \item{nreps}{The number of simulations for drawing posterior model
 parameters.}
@@ -46,7 +46,8 @@ the subject random effects.
 }
 }
 \description{
-Fits a linear mixed-effects model to the dispensed doses.
+Fits a linear mixed-effects model to the dispensed doses
+at drug dispensing visits.
 }
 \examples{
 library(dplyr)
@@ -69,7 +70,7 @@ vf <- visitview2 \%>\%
   mutate(row_id = row_number())
 
 vf1 <- vf \%>\% filter(drug == 3)
-fit_di <- f_fit_di(vf1, model = "lme", nreps = 200)
+fit_di <- f_fit_di(vf1, model = "linear mixed-effects model", nreps = 200)
 
 }
 \author{

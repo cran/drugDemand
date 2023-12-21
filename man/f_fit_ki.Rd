@@ -12,8 +12,8 @@ indicate the number of skipped visits.}
 
 \item{model}{The count model used to analyze the number of
 skipped visits, with options including
-"constant", "poisson", "zip" for zero-inflated Poisson, and
-"nb" for negative binomial.}
+"constant", "poisson", "zero-inflated poisson", and
+"negative binomial".}
 
 \item{nreps}{The number of simulations for drawing posterior model
 parameter values.}
@@ -37,7 +37,8 @@ A list with three components:
 }
 }
 \description{
-Fits a count model to the number of skipped visits.
+Fits a count model to the number of skipped visits
+between two consecutive drug dispensing visits.
 }
 \examples{
 library(dplyr)
@@ -74,7 +75,7 @@ df_ti <- vf1 \%>\%
          k1 = skipped + 1) \%>\%
   filter(row_id < n())
 
-fit_ki <- f_fit_ki(df_ti, model = "zip", nreps = 200)
+fit_ki <- f_fit_ki(df_ti, model = "zero-inflated poisson", nreps = 200)
 
 }
 \author{

@@ -35,7 +35,7 @@ consecutive drug dispensing visits.}
 
 \item{vf_ongoing1}{A data frame for the last observed drug dispensing
 date for ongoing patients with drug dispensing records, with or without
-the associated drug information. For common time model, it includes
+the associated drug information. For the common time model, it includes
 the following variables: \code{draw}, \code{usubjid},
 \code{arrivalTime}, \code{treatment}, \code{treatment_description},
 \code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.
@@ -47,7 +47,7 @@ For separate time models, it includes the following variables:
 
 \item{vf_new1}{A data frame for the randomization date for new patients
 and ongoing patients with no drug dispensing records, with or without the
-associated drug information. For common time model, it includes
+associated drug information. For the common time model, it includes
 the following variables: \code{draw}, \code{usubjid},
 \code{arrivalTime}, \code{treatment}, \code{treatment_description},
 \code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.
@@ -111,8 +111,10 @@ treatment_by_drug_df <- vf \%>\%
 
 fit <- f_dispensing_models(
   vf, dosing_schedule_df,
-  model_k0 = "zip", model_t0 = "log-logistic",
-  model_ki = "zip", model_di = "lme",
+  model_k0 = "zero-inflated poisson",
+  model_t0 = "log-logistic", model_t1 = "least squares",
+  model_ki = "zero-inflated poisson", model_ti = "least squares",
+  model_di = "linear mixed-effects model",
   nreps = 200, showplot = FALSE)
 
 trialsdt = df$trialsdt[1]

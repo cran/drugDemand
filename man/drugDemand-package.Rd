@@ -16,8 +16,10 @@ The number of skipped visits is modeled using Poisson,
 zero-inflated Poisson, or negative binomial distributions
 (Zeileis, Kleiber & Jackman (2008) \doi{10.18637/jss.v027.i08}).
 The gap time between two consecutive drug dispensing visits
-is modeled using linear regression given the number of skipped
-visits. The number of dispensed doses is modeled using linear
+given the number of skipped visits is modeled using linear
+regression based on least squares or least absolute
+deviations (Birkes & Dodge (1993, ISBN:0-471-56881-3)).
+The number of dispensed doses is modeled using linear
 or linear mixed-effects models
 (McCulloch & Searle (2001, ISBN:0-471-19364-X)).
 }
@@ -52,8 +54,9 @@ negative binomial distributions.
 For \code{t0}, we consider various models such as constant,
 exponential, Weibull, log-logistic, and log-normal.
 
-Linear regression models are applied to \code{t1} (given \code{k0})
-and \code{ti} (given \code{ki}).
+For \code{t1} (given \code{k0}) and \code{ti} (given \code{ki}),
+we apply linear regression models using least squares or
+least absolute deviations.
 
 For \code{di}, we evaluate constant, linear, and linear
 mixed-effects models with subject random effects.
@@ -75,10 +78,13 @@ Achim Zeileis, Christian Kleiber, and Simon Jackman.
 Regression models for count data in R.
 J Stat Softw. 2008, Volume 27, Issue 8.
 
+David Birkes and Yadolah Dodge.
+Alternative Methods of Regression.
+John Wiley & Sons: New York, 1993.
+
 Charles E. McCulloch and Shayler R. Searle.
 Generalized, Linear, and Mixed Models.
-John Wiley & Sons: New York, 2001,
-ISBN:0-471-19364-X
+John Wiley & Sons: New York, 2001.
 }
 \author{
 Kaifeng Lu, \email{kaifenglu@gmail.com}

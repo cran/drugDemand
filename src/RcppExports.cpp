@@ -11,8 +11,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // f_dose_ongoing_cpp
-DataFrame f_dose_ongoing_cpp(const StringVector usubjid, const NumericVector V, const NumericVector C, const NumericVector D, const std::string model_ki, const NumericVector theta_ki, const double muT, const double sigmaT);
-RcppExport SEXP _drugDemand_f_dose_ongoing_cpp(SEXP usubjidSEXP, SEXP VSEXP, SEXP CSEXP, SEXP DSEXP, SEXP model_kiSEXP, SEXP theta_kiSEXP, SEXP muTSEXP, SEXP sigmaTSEXP) {
+DataFrame f_dose_ongoing_cpp(const StringVector usubjid, const NumericVector V, const NumericVector C, const NumericVector D, const std::string model_ki, const NumericVector theta_ki, const std::string model_ti, const NumericVector theta_ti);
+RcppExport SEXP _drugDemand_f_dose_ongoing_cpp(SEXP usubjidSEXP, SEXP VSEXP, SEXP CSEXP, SEXP DSEXP, SEXP model_kiSEXP, SEXP theta_kiSEXP, SEXP model_tiSEXP, SEXP theta_tiSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -22,15 +22,15 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericVector >::type D(DSEXP);
     Rcpp::traits::input_parameter< const std::string >::type model_ki(model_kiSEXP);
     Rcpp::traits::input_parameter< const NumericVector >::type theta_ki(theta_kiSEXP);
-    Rcpp::traits::input_parameter< const double >::type muT(muTSEXP);
-    Rcpp::traits::input_parameter< const double >::type sigmaT(sigmaTSEXP);
-    rcpp_result_gen = Rcpp::wrap(f_dose_ongoing_cpp(usubjid, V, C, D, model_ki, theta_ki, muT, sigmaT));
+    Rcpp::traits::input_parameter< const std::string >::type model_ti(model_tiSEXP);
+    Rcpp::traits::input_parameter< const NumericVector >::type theta_ti(theta_tiSEXP);
+    rcpp_result_gen = Rcpp::wrap(f_dose_ongoing_cpp(usubjid, V, C, D, model_ki, theta_ki, model_ti, theta_ti));
     return rcpp_result_gen;
 END_RCPP
 }
 // f_dose_new_cpp
-DataFrame f_dose_new_cpp(const StringVector usubjid, const NumericVector V, const NumericVector C, const NumericVector D, const std::string model_k0, const NumericVector theta_k0, const std::string model_t0, const NumericVector theta_t0, const double mu0, const double sigma0, const std::string model_ki, const NumericVector theta_ki, const double muT, const double sigmaT);
-RcppExport SEXP _drugDemand_f_dose_new_cpp(SEXP usubjidSEXP, SEXP VSEXP, SEXP CSEXP, SEXP DSEXP, SEXP model_k0SEXP, SEXP theta_k0SEXP, SEXP model_t0SEXP, SEXP theta_t0SEXP, SEXP mu0SEXP, SEXP sigma0SEXP, SEXP model_kiSEXP, SEXP theta_kiSEXP, SEXP muTSEXP, SEXP sigmaTSEXP) {
+DataFrame f_dose_new_cpp(const StringVector usubjid, const NumericVector V, const NumericVector C, const NumericVector D, const std::string model_k0, const NumericVector theta_k0, const std::string model_t0, const NumericVector theta_t0, const std::string model_t1, const NumericVector theta_t1, const std::string model_ki, const NumericVector theta_ki, const std::string model_ti, const NumericVector theta_ti);
+RcppExport SEXP _drugDemand_f_dose_new_cpp(SEXP usubjidSEXP, SEXP VSEXP, SEXP CSEXP, SEXP DSEXP, SEXP model_k0SEXP, SEXP theta_k0SEXP, SEXP model_t0SEXP, SEXP theta_t0SEXP, SEXP model_t1SEXP, SEXP theta_t1SEXP, SEXP model_kiSEXP, SEXP theta_kiSEXP, SEXP model_tiSEXP, SEXP theta_tiSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -42,13 +42,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const NumericVector >::type theta_k0(theta_k0SEXP);
     Rcpp::traits::input_parameter< const std::string >::type model_t0(model_t0SEXP);
     Rcpp::traits::input_parameter< const NumericVector >::type theta_t0(theta_t0SEXP);
-    Rcpp::traits::input_parameter< const double >::type mu0(mu0SEXP);
-    Rcpp::traits::input_parameter< const double >::type sigma0(sigma0SEXP);
+    Rcpp::traits::input_parameter< const std::string >::type model_t1(model_t1SEXP);
+    Rcpp::traits::input_parameter< const NumericVector >::type theta_t1(theta_t1SEXP);
     Rcpp::traits::input_parameter< const std::string >::type model_ki(model_kiSEXP);
     Rcpp::traits::input_parameter< const NumericVector >::type theta_ki(theta_kiSEXP);
-    Rcpp::traits::input_parameter< const double >::type muT(muTSEXP);
-    Rcpp::traits::input_parameter< const double >::type sigmaT(sigmaTSEXP);
-    rcpp_result_gen = Rcpp::wrap(f_dose_new_cpp(usubjid, V, C, D, model_k0, theta_k0, model_t0, theta_t0, mu0, sigma0, model_ki, theta_ki, muT, sigmaT));
+    Rcpp::traits::input_parameter< const std::string >::type model_ti(model_tiSEXP);
+    Rcpp::traits::input_parameter< const NumericVector >::type theta_ti(theta_tiSEXP);
+    rcpp_result_gen = Rcpp::wrap(f_dose_new_cpp(usubjid, V, C, D, model_k0, theta_k0, model_t0, theta_t0, model_t1, theta_t1, model_ki, theta_ki, model_ti, theta_ti));
     return rcpp_result_gen;
 END_RCPP
 }

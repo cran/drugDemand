@@ -9,7 +9,9 @@ f_dispensing_models(
   dosing_schedule_df,
   model_k0,
   model_t0,
+  model_t1,
   model_ki,
+  model_ti,
   model_di,
   nreps,
   showplot = TRUE
@@ -29,22 +31,30 @@ information. It contains the following variables: \code{drug},
 
 \item{model_k0}{The model for the number of skipped
 visits between randomization and the first drug dispensing visit.
-Options include "constant", "poisson", "zip" for zero-inflated
-Poisson, and "nb" for negative binomial.}
+Options include "constant", "poisson", "zero-inflated poisson",
+and "negative binomial".}
 
 \item{model_t0}{The model for the gap time between randomization
 and the first drug dispensing visit when there is no visit skipping.
 Options include "constant", "exponential", "weibull",
 "log-logistic", and "log-normal".}
 
+\item{model_t1}{The model for the gap time between randomization
+and the first drug dispensing visit when there is visit skipping.
+Options include "least squares", and "least absolute deviations".}
+
 \item{model_ki}{The model for the number of skipped
 visits between two consecutive drug dispensing visits.
-Options include "constant", "poisson", "zip" for zero-inflated
-Poisson, and "nb" for negative binomial.}
+Options include "constant", "poisson", "zero-inflated poisson",
+and "negative binomial".}
+
+\item{model_ti}{The model for the gap time between two consecutive
+drug dispensing visits. Options include "least squares"
+and "least absolute deviations".}
 
 \item{model_di}{The model for the dispensed doses at drug
 dispensing visits. Options include "constant",
-"lm" for linear model, and "lme" for linear mixed-effects model.}
+"linear model", and "linear mixed-effects model".}
 
 \item{nreps}{The number of simulations for drawing posterior model
 parameters.}
@@ -99,8 +109,10 @@ vf <- visitview2 \%>\%
 
 dispensing_models <- f_dispensing_models(
   vf, dosing_schedule_df,
-  model_k0 = "zip", model_t0 = "log-logistic",
-  model_ki = "zip", model_di = "lme",
+  model_k0 = "zero-inflated poisson",
+  model_t0 = "log-logistic", model_t1 = "least squares",
+  model_ki = "zero-inflated poisson", model_ti = "least squares",
+  model_di = "linear mixed-effects model",
   nreps = 200, showplot = FALSE)
 
 dispensing_models$fit_ki$fit_plot

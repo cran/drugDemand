@@ -4,7 +4,7 @@
 \alias{f_dose_ongoing_cpp}
 \title{Dosing Date Imputation for Ongoing Patients}
 \usage{
-f_dose_ongoing_cpp(usubjid, V, C, D, model_ki, theta_ki, muT, sigmaT)
+f_dose_ongoing_cpp(usubjid, V, C, D, model_ki, theta_ki, model_ti, theta_ti)
 }
 \arguments{
 \item{usubjid}{The unique subject ID.}
@@ -17,17 +17,18 @@ f_dose_ongoing_cpp(usubjid, V, C, D, model_ki, theta_ki, muT, sigmaT)
 
 \item{model_ki}{The model for the number of skipped
 visits between two consecutive drug dispensing visits.
-Options include "constant", "poisson", "zip" for zero-inflated
-Poisson, and "nb" for negative binomial.}
+Options include "constant", "poisson", "zero-inflated poisson",
+and "negative binomial".}
 
 \item{theta_ki}{The model parameters for the number of skipped visits
 between two consecutive drug dispensing visits.}
 
-\item{muT}{The regression coefficient for the linear model for the
-gap time between two consecutive drug dispensing visits.}
+\item{model_ti}{The model for the gap time between two consecutive
+drug dispensing visits. Options include "least squares"
+and "least absolute deviations".}
 
-\item{sigmaT}{The residual standard deviation for the linear model
-for the gap time between two consecutive drug dispensing visits.}
+\item{theta_ti}{The model parameters for the gap time between
+two consecutive drug dispensing visits.}
 }
 \value{
 A data frame with two variables:
@@ -45,8 +46,8 @@ set.seed(314)
 
 f_dose_ongoing_cpp(
   usubjid = "A001", V = 297, C = 329, D = 569,
-  model_ki = "zip", theta_ki = c(0.4, 2.5),
-  muT = 21, sigmaT = 2.3)
+  model_ki = "zero-inflated poisson", theta_ki = c(0.4, 2.5),
+  model_ti = "least squares", theta_ti = c(21, 2.3))
 
 }
 \author{

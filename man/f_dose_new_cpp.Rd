@@ -13,12 +13,12 @@ f_dose_new_cpp(
   theta_k0,
   model_t0,
   theta_t0,
-  mu0,
-  sigma0,
+  model_t1,
+  theta_t1,
   model_ki,
   theta_ki,
-  muT,
-  sigmaT
+  model_ti,
+  theta_ti
 )
 }
 \arguments{
@@ -32,8 +32,8 @@ f_dose_new_cpp(
 
 \item{model_k0}{The model for the number of skipped
 visits between randomization and the first drug dispensing visit.
-Options include "constant", "poisson", "zip" for zero-inflated
-Poisson, and "nb" for negative binomial.}
+Options include "constant", "poisson", "zero-inflated poisson",
+and "negative binomial".}
 
 \item{theta_k0}{The model parameters for the number of skipped
 visits between randomization and the first drug dispensing visit.}
@@ -47,27 +47,28 @@ Options include "constant", "exponential", "weibull",
 randomization and the first drug dispensing visit when there is
 no visit skipping.}
 
-\item{mu0}{The regression coefficient for the linear model for the gap
-time between randomization and the first drug dispensing visit
-when there is visit skipping.}
+\item{model_t1}{The model for the gap time between randomization
+and the first drug dispensing visit when there is visit skipping.
+Options include "least squares", and "least absolute deviations".}
 
-\item{sigma0}{The residual standard deviation for the linear model
-for the gap time between randomization and the first drug
-dispensing visit when there is visit skipping.}
+\item{theta_t1}{The model parameters for the gap time between
+randomization and the first drug dispensing visit when there is
+visit skipping.}
 
 \item{model_ki}{The model for the number of skipped
 visits between two consecutive drug dispensing visits.
-Options include "constant", "poisson", "zip" for zero-inflated
-Poisson, and "nb" for negative binomial.}
+Options include "constant", "poisson", "zero-inflated poisson",
+and "negative binomial".}
 
 \item{theta_ki}{The model parameters for the number of skipped
 visits between two consecutive drug dispensing visits.}
 
-\item{muT}{The regression coefficient for the linear model for the gap
-time between two consecutive drug dispensing visits.}
+\item{model_ti}{The model for the gap time between two consecutive
+drug dispensing visits. Options include "least squares"
+and "least absolute deviations".}
 
-\item{sigmaT}{The residual standard deviation the linear model for the
-gap time between two consecutive drug dispensing visits.}
+\item{theta_ti}{The model parameters for the gap time between
+two consecutive drug dispensing visits.}
 }
 \value{
 A data frame with two variables:
@@ -85,11 +86,11 @@ set.seed(529)
 
 f_dose_new_cpp(
   usubjid = "Z001", V = 0, C = 87, D = 985,
-  model_k0 = "zip", theta_k0 = c(0.6, 1.1),
+  model_k0 = "zero-inflated poisson", theta_k0 = c(0.6, 1.1),
   model_t0 = "log-logistic", theta_t0 = c(-1.0, 0.7),
-  mu0 = 21.5, sigma0 = 1.9,
-  model_ki = "zip", theta_ki = c(0.1, 0.4),
-  muT = 21, sigmaT = 2.3)
+  model_t1 = "least squares", theta_t1 = c(21.5, 1.9),
+  model_ki = "zero-inflated poisson", theta_ki = c(0.1, 0.4),
+  model_ti = "least squares", theta_ti = c(21, 2.3))
 
 }
 \author{

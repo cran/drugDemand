@@ -22,8 +22,8 @@ and \code{cum_dose_t0}.}
 
 \item{newEvents}{A data frame containing the imputed event data
 for both ongoing and new patients, typically obtained from
-the output of the \code{eventPred::getPrediction} function.
-It contains the following variables:
+the output of the \code{getPrediction} function of the
+\code{eventPred} package. It contains the following variables:
 \code{draw}, \code{usubjid}, \code{arrivalTime}, \code{treatment},
 \code{treatment_description}, \code{time}, \code{event},
 \code{dropout}, and \code{totalTime}.}

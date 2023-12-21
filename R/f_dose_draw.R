@@ -14,7 +14,7 @@
 #' consecutive drug dispensing visits.
 #' @param vf_ongoing1 A data frame for the last observed drug dispensing
 #'   date for ongoing patients with drug dispensing records, with or without
-#'   the associated drug information. For common time model, it includes
+#'   the associated drug information. For the common time model, it includes
 #'   the following variables: \code{draw}, \code{usubjid},
 #'   \code{arrivalTime}, \code{treatment}, \code{treatment_description},
 #'   \code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.
@@ -25,7 +25,7 @@
 #'   \code{V}, \code{C}, and \code{D}.
 #' @param vf_new1 A data frame for the randomization date for new patients
 #'   and ongoing patients with no drug dispensing records, with or without the
-#'   associated drug information. For common time model, it includes
+#'   associated drug information. For the common time model, it includes
 #'   the following variables: \code{draw}, \code{usubjid},
 #'   \code{arrivalTime}, \code{treatment}, \code{treatment_description},
 #'   \code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.
@@ -90,8 +90,10 @@
 #'
 #' fit <- f_dispensing_models(
 #'   vf, dosing_schedule_df,
-#'   model_k0 = "zip", model_t0 = "log-logistic",
-#'   model_ki = "zip", model_di = "lme",
+#'   model_k0 = "zero-inflated poisson",
+#'   model_t0 = "log-logistic", model_t1 = "least squares",
+#'   model_ki = "zero-inflated poisson", model_ti = "least squares",
+#'   model_di = "linear mixed-effects model",
 #'   nreps = 200, showplot = FALSE)
 #'
 #' trialsdt = df$trialsdt[1]
@@ -166,21 +168,21 @@ f_dose_draw_t_1 <- function(
     fit_ki, fit_ti,
     vf_ongoing1, vf_new1) {
 
-  model_k0 = fit_k0$fit$model
+  model_k0 = tolower(fit_k0$fit$model)
   if (model_k0 == "constant") {
     theta_k0 = fit_k0$theta[i]
   } else if (model_k0 == "poisson") {
     theta_k0 = exp(fit_k0$theta[i])
-  } else if (model_k0 == "zip") {
+  } else if (model_k0 == "zero-inflated poisson") {
     theta_k0 = c(plogis(fit_k0$theta[i,2]), exp(fit_k0$theta[i,1]))
-  } else if (model_k0 == "nb") {
+  } else if (model_k0 == "negative binomial") {
     mu = exp(fit_k0$theta[i,1])
     size = exp(fit_k0$theta[i,2])
     prob = size/(size + mu)
     theta_k0 = c(size, prob)
   }
 
-  model_t0 = fit_t0$fit$model
+  model_t0 = tolower(fit_t0$fit$model)
   if (model_t0 == "constant") {
     theta_t0 = fit_t0$theta[i]
   } else if (model_t0 == "exponential") {
@@ -193,25 +195,25 @@ f_dose_draw_t_1 <- function(
     theta_t0 = c(fit_t0$theta[i,1], exp(fit_t0$theta[i,2]))
   }
 
-  mu0 = fit_t1$theta[i,1]
-  sigma0 = fit_t1$theta[i,2]
+  model_t1 = tolower(fit_t1$fit$model)
+  theta_t1 = c(fit_t1$theta[i,1], fit_t1$theta[i,2])
 
-  model_ki = fit_ki$fit$model
+  model_ki = tolower(fit_ki$fit$model)
   if (model_ki == "constant") {
     theta_ki = fit_ki$theta[i]
   } else if (model_ki == "poisson") {
     theta_ki = exp(fit_ki$theta[i])
-  } else if (model_ki == "zip") {
+  } else if (model_ki == "zero-inflated poisson") {
     theta_ki = c(plogis(fit_ki$theta[i,2]), exp(fit_ki$theta[i,1]))
-  } else if (model_ki == "nb") {
+  } else if (model_ki == "negative binomial") {
     mu = exp(fit_ki$theta[i,1])
     size = exp(fit_ki$theta[i,2])
     prob = size/(size + mu)
     theta_ki = c(size, prob)
   }
 
-  muT = fit_ti$theta[i,1]
-  sigmaT = fit_ti$theta[i,2]
+  model_ti = tolower(fit_ti$fit$model)
+  theta_ti = c(fit_ti$theta[i,1], fit_ti$theta[i,2])
 
 
   # impute dosing for ongoing patients
@@ -221,7 +223,7 @@ f_dose_draw_t_1 <- function(
   # impute dosing dates for these ongoing patients
   df_ongoingi <- f_dose_ongoing_cpp(
     df_ongoing1$usubjid, df_ongoing1$V, df_ongoing1$C, df_ongoing1$D,
-    model_ki, theta_ki, muT, sigmaT)
+    model_ki, theta_ki, model_ti, theta_ti)
 
   # get other variables and combine with observed drug dispensing data
   df_ongoingi <- df_ongoingi %>%
@@ -239,8 +241,8 @@ f_dose_draw_t_1 <- function(
     # impute dosing data for new patients
     df_newi <- f_dose_new_cpp(
       df_new1$usubjid, df_new1$V, df_new1$C, df_new1$D,
-      model_k0, theta_k0, model_t0, theta_t0, mu0, sigma0,
-      model_ki, theta_ki, muT, sigmaT)
+      model_k0, theta_k0, model_t0, theta_t0, model_t1, theta_t1,
+      model_ki, theta_ki, model_ti, theta_ti)
 
     # get other variables
     df_newi <- df_newi %>%
@@ -285,7 +287,7 @@ f_dose_draw_t_1 <- function(
 #'   \code{V}, \code{C}, and \code{D}.
 #' @param vf_ongoing1 A data frame for the last observed drug dispensing
 #'   date for ongoing patients with drug dispensing records, with or without
-#'   the associated drug information. For common time model, it includes
+#'   the associated drug information. For the common time model, it includes
 #'   the following variables: \code{draw}, \code{usubjid},
 #'   \code{arrivalTime}, \code{treatment}, \code{treatment_description},
 #'   \code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.
@@ -296,7 +298,7 @@ f_dose_draw_t_1 <- function(
 #'   \code{V}, \code{C}, and \code{D}.
 #' @param vf_new1 A data frame for the randomization date for new patients
 #'   and ongoing patients with no drug dispensing records, with or without the
-#'   associated drug information. For common time model, it includes
+#'   associated drug information. For the common time model, it includes
 #'   the following variables: \code{draw}, \code{usubjid},
 #'   \code{arrivalTime}, \code{treatment}, \code{treatment_description},
 #'   \code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.
@@ -377,8 +379,10 @@ f_dose_draw_t_1 <- function(
 #'
 #' fit <- f_dispensing_models(
 #'   vf, dosing_schedule_df,
-#'   model_k0 = "zip", model_t0 = "log-logistic",
-#'   model_ki = "zip", model_di = "lme",
+#'   model_k0 = "zero-inflated poisson", model_t0 = "log-logistic",
+#'   model_t1 = "least squares",
+#'   model_ki = "zero-inflated poisson", model_ti = "least squares",
+#'   model_di = "linear mixed-effects model",
 #'   nreps = 200, showplot = FALSE)
 #'
 #' trialsdt = df$trialsdt[1]
@@ -558,8 +562,8 @@ f_dose_draw_1 <- function(
 #'   \code{day}, \code{dose}, \code{cum_dose}, and \code{row_id}.
 #' @param newEvents A data frame containing the imputed event data
 #'   for both ongoing and new patients, typically obtained from
-#'   the output of the \code{eventPred::getPrediction} function.
-#'   It contains the following variables:
+#'   the output of the \code{getPrediction} function of the
+#'   \code{eventPred} package. It contains the following variables:
 #'   \code{draw}, \code{usubjid}, \code{arrivalTime}, \code{treatment},
 #'   \code{treatment_description}, \code{time}, \code{event},
 #'   \code{dropout}, and \code{totalTime}.
@@ -652,8 +656,10 @@ f_dose_draw_1 <- function(
 #'
 #' fit <- f_dispensing_models(
 #'   vf, dosing_schedule_df,
-#'   model_k0 = "zip", model_t0 = "log-logistic",
-#'   model_ki = "zip", model_di = "lme",
+#'   model_k0 = "zero-inflated poisson", model_t0 = "log-logistic",
+#'   model_t1 = "least squares",
+#'   model_ki = "zero-inflated poisson", model_ti = "least squares",
+#'   model_di = "linear mixed-effects model",
 #'   nreps = 200, showplot = FALSE)
 #'
 #' trialsdt = df$trialsdt[1]

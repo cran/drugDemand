@@ -2,7 +2,7 @@
 % Please edit documentation in R/f_dose_observed.R
 \name{f_dose_observed}
 \alias{f_dose_observed}
-\title{Summarize Observed Drug Dispensing Data}
+\title{Observed Drug Dispensing Data Summary}
 \usage{
 f_dose_observed(df = NULL, visitview = NULL, showplot = TRUE)
 }

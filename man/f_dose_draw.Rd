@@ -37,8 +37,8 @@ including the following variables:
 
 \item{newEvents}{A data frame containing the imputed event data
 for both ongoing and new patients, typically obtained from
-the output of the \code{eventPred::getPrediction} function.
-It contains the following variables:
+the output of the \code{getPrediction} function of the
+\code{eventPred} package. It contains the following variables:
 \code{draw}, \code{usubjid}, \code{arrivalTime}, \code{treatment},
 \code{treatment_description}, \code{time}, \code{event},
 \code{dropout}, and \code{totalTime}.}
@@ -142,8 +142,10 @@ treatment_by_drug_df <- vf \%>\%
 
 fit <- f_dispensing_models(
   vf, dosing_schedule_df,
-  model_k0 = "zip", model_t0 = "log-logistic",
-  model_ki = "zip", model_di = "lme",
+  model_k0 = "zero-inflated poisson", model_t0 = "log-logistic",
+  model_t1 = "least squares",
+  model_ki = "zero-inflated poisson", model_ti = "least squares",
+  model_di = "linear mixed-effects model",
   nreps = 200, showplot = FALSE)
 
 trialsdt = df$trialsdt[1]

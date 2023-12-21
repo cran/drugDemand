@@ -110,7 +110,7 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
   # fit time-to-event models
   l = length(unique(df$time))
   if (l == 1) {
-    fit <- list(model = "constant",
+    fit <- list(model = "Constant",
                 theta = df$time[1] - 1,
                 vtheta = 0,
                 aic = NA,
@@ -128,7 +128,7 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
       a <- icenReg::ic_par(cbind(left, right) ~ 1, data = df,
                            model = "ph", dist = "exponential")
 
-      fit <- list(model = "exponential",
+      fit <- list(model = "Exponential",
                   theta = -as.numeric(a$coefficients),  # log(rate)
                   vtheta = as.numeric(a$var),
                   aic = -2*a$llk + 2,
@@ -144,7 +144,7 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 
       # convert to (log(lambda) = log_scale, -log(kappa) = -log_shape)
       const = matrix(c(0, 1, -1, 0), 2, 2, byrow = TRUE)
-      fit <- list(model = "weibull",
+      fit <- list(model = "Weibull",
                   theta = c(const %*% a$coefficients),
                   vtheta = const %*% a$var %*% t(const),
                   aic = -2*a$llk + 4,
@@ -161,7 +161,7 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 
       # convert to (mu = log_scale, log(sigma) = -log_shape)
       const = matrix(c(1, 0, 0, -1), 2, 2, byrow = TRUE)
-      fit <- list(model = "log-logistic",
+      fit <- list(model = "Log-logistic",
                   theta = c(const %*% a$coefficients),
                   vtheta = const %*% a$var %*% t(const),
                   aic = -2*a$llk + 4,
@@ -177,7 +177,7 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
                            model = "ph", dist = "lnorm")
 
       # parametrization: (mu = mean.log, log(sigma) = log(sd.log))
-      fit <- list(model = "log-normal",
+      fit <- list(model = "Log-normal",
                   theta = as.numeric(a$coefficients),
                   vtheta = a$var,
                   aic = -2*a$llk + 4,
@@ -196,7 +196,7 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 
   # graphically assess the model fit
   modeltext = fit$model
-  if (modeltext != "constant") {
+  if (modeltext != "Constant") {
     aictext = paste("AIC:", round(fit$aic,2))
     bictext = paste("BIC:", round(fit$bic,2))
   } else {
@@ -231,14 +231,15 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 
 
 #' @title Model Fitting for Number of Skipped Visits
-#' @description Fits a count model to the number of skipped visits.
+#' @description Fits a count model to the number of skipped visits
+#' between two consecutive drug dispensing visits.
 #'
 #' @param df The subject-level dosing data, including \code{skipped} to
 #'   indicate the number of skipped visits.
 #' @param model The count model used to analyze the number of
 #'   skipped visits, with options including
-#'   "constant", "poisson", "zip" for zero-inflated Poisson, and
-#'   "nb" for negative binomial.
+#'   "constant", "poisson", "zero-inflated poisson", and
+#'   "negative binomial".
 #' @param nreps The number of simulations for drawing posterior model
 #'   parameter values.
 #' @param showplot A Boolean variable that controls whether or not to
@@ -299,7 +300,7 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 #'          k1 = skipped + 1) %>%
 #'   filter(row_id < n())
 #'
-#' fit_ki <- f_fit_ki(df_ti, model = "zip", nreps = 200)
+#' fit_ki <- f_fit_ki(df_ti, model = "zero-inflated poisson", nreps = 200)
 #'
 #' @export
 f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
@@ -308,7 +309,9 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
   n = nrow(df)
 
   model = tolower(model)
-  erify::check_content(model, c("constant", "poisson", "zip", "nb"))
+  erify::check_content(model, c("constant", "poisson",
+                                "zero-inflated poisson",
+                                "negative binomial"))
 
   erify::check_n(nreps)
   erify::check_bool(showplot)
@@ -324,7 +327,7 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
   # fit the count model
   l = length(unique(df$skipped))
   if (l == 1) {
-    fit <- list(model = "constant",
+    fit <- list(model = "Constant",
                 theta = df$skipped[1],
                 vtheta = 0,
                 aic = NA,
@@ -341,7 +344,7 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
     if (model == "poisson") {
       a <- glm(skipped ~ 1, family = poisson(link = "log"), data = df)
 
-      fit <- list(model = "poisson",
+      fit <- list(model = "Poisson",
                   theta = as.numeric(a$coefficients),  # log(rate)
                   vtheta = as.numeric(vcov(a)),
                   aic = a$aic,
@@ -351,10 +354,10 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
       p.fit = dpois(y, rate)
 
       post = rnorm(nreps, mean = fit$theta, sd = sqrt(fit$vtheta))
-    } else if (model == "zip") {
+    } else if (model == "zero-inflated poisson") {
       a <- pscl::zeroinfl(skipped ~ 1 | 1, data = df, dist = "poisson")
 
-      fit <- list(model = "zip",
+      fit <- list(model = "Zero-inflated Poisson",
                   theta = as.numeric(a$coefficients),
                   vtheta = vcov(a),
                   aic = -2*a$loglik + 4,
@@ -366,11 +369,11 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
       p.fit <- c(pi + (1-pi)*dpois(0, lambda), (1-pi)*dpois(y[-1], lambda))
 
       post = mvtnorm::rmvnorm(nreps, mean = fit$theta, sigma = fit$vtheta)
-    } else if (model == "nb") {
+    } else if (model == "negative binomial") {
       a <- MASS::glm.nb(skipped ~ 1, data = df)
 
       # parametrization: log(mean), log(size)
-      fit <- list(model = "nb",
+      fit <- list(model = "Negative binomial",
                   theta = c(as.numeric(a$coefficients), log(a$theta)),
                   vtheta = diag(c(as.numeric(vcov(a)),
                                   a$SE.theta^2/a$theta^2)),
@@ -391,7 +394,7 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
 
   # graphically assess the model fit
   modeltext = fit$model
-  if (modeltext != "constant") {
+  if (modeltext != "Constant") {
     aictext = paste("AIC:", round(fit$aic,2))
     bictext = paste("BIC:", round(fit$bic,2))
   } else {
@@ -425,7 +428,8 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
 
 
 #' @title Model Fitting for Gap Times
-#' @description Fits a linear regression model to the gap times.
+#' @description Fits a linear regression model to the gap time
+#' between two consecutive drug dispensing visits.
 #'
 #' @param df The subject-level dosing data, including the following
 #'   variables:
@@ -438,8 +442,8 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
 #'     \code{skipped} for the gap time between randomization and
 #'     the first drug dispensing visit and \code{skipped + 1}
 #'     for the gap time between two consecutive drug dispensing visits.
-#' @param model The model used to analyze the gap time.
-#'   Currently, it only supports the linear model ("lm").
+#' @param model The model used to analyze the gap time. Options include
+#'   "least squares" and "least absolute deviations".
 #' @param nreps The number of simulations for drawing posterior model
 #'   parameter values.
 #' @param showplot A Boolean variable that controls whether or not to
@@ -504,25 +508,19 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
 #'          k1 = skipped + 1) %>%
 #'   filter(row_id < n())
 #'
-#' fit_ti <- f_fit_ti(df_ti, model = "lm", nreps = 200)
+#' fit_ti <- f_fit_ti(df_ti, model = "least squares", nreps = 200)
 #'
 #' @export
-f_fit_ti <- function(df, model = "lm", nreps, showplot = TRUE) {
+f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
   erify::check_class(df, "data.frame")
   names(df) <- tolower(names(df))
 
+  model = tolower(model)
+  erify::check_content(model, c("least squares",
+                                "least absolute deviations"))
+
   erify::check_n(nreps)
   erify::check_bool(showplot)
-
-  a <- lm(time ~ k1 - 1, data = df)
-
-  fit <- list(model = "lm",
-              beta = as.numeric(a$coefficients),
-              vbeta = as.numeric(vcov(a)),
-              sigma = summary(a)$sigma,
-              df = a$df.residual,
-              aic = as.numeric(AIC(a)),
-              bic = as.numeric(BIC(a)))
 
   x = table(df$time)
   count = as.numeric(x)
@@ -531,21 +529,61 @@ f_fit_ti <- function(df, model = "lm", nreps, showplot = TRUE) {
   p.obs = rep(0, length(y))
   p.obs[findInterval(y.obs, y)] = count/sum(count)
 
+  if (nrow(df) == 1) {
+    fit <- list(model = "Constant",
+                beta = df$time[1]/df$k1[1],
+                vbeta = 0,
+                sigma = 0,
+                df = 0,
+                aic = NA,
+                bic = NA)
 
-  if (a$df.residual == 0) { # one observation only
-    fit$model = "constant"
     p.fit = 1
-  } else {
+  } else if (model == "least squares") {
+    a <- lm(time ~ k1 - 1, data = df)
+
+    fit <- list(model = "Least squares",
+                beta = as.numeric(a$coefficients),
+                vbeta = as.numeric(vcov(a)),
+                sigma = summary(a)$sigma,
+                df = a$df.residual,
+                aic = as.numeric(AIC(a)),
+                bic = as.numeric(BIC(a)))
+
     p.fit <- purrr::map_vec(y, function(y) {
       mean(pnorm((y + 0.5 - fit$beta*df$k1)/fit$sigma) -
              pnorm((y - 0.5 - fit$beta*df$k1)/fit$sigma))
+    })
+  } else if (model == "least absolute deviations") {
+    a <- L1pack::lad(time ~ k1 - 1, data = df)
+
+    fit <- list(model = "Least absolute deviations",
+                beta = as.numeric(a$coefficients),
+                vbeta = as.numeric(vcov(a)),
+                sigma = a$scale,
+                df = a$dims[1] - a$dims[2],
+                aic = as.numeric(AIC(a)),
+                bic = as.numeric(BIC(a)))
+
+    p.fit <- purrr::map_vec(y, function(y) {
+      d <- df %>%
+        dplyr::mutate(x1 = y+0.5-fit$beta*.data$k1,
+                      x2 = y-0.5-fit$beta*.data$k1,
+                      t1 = exp(.data$x1/fit$sigma),
+                      t2 = exp(.data$x2/fit$sigma)) %>%
+        dplyr::mutate(prob = ifelse(
+          .data$x1 < 0, 0.5*(.data$t1 - .data$t2),
+          ifelse(.data$x2 > 0, 0.5*(-1/.data$t1 + 1/.data$t2),
+                 1 - 0.5*(1/.data$t1 + .data$t2))))
+
+      mean(d$prob)
     })
   }
 
   gf = dplyr::tibble(y = y, p.obs = p.obs, p.fit = p.fit)
 
   modeltext = fit$model
-  if (modeltext != "constant") {
+  if (modeltext != "Constant") {
     aictext = paste("AIC:", round(fit$aic,2))
     bictext = paste("BIC:", round(fit$bic,2))
   } else {
@@ -573,7 +611,7 @@ f_fit_ti <- function(df, model = "lm", nreps, showplot = TRUE) {
   if (showplot) print(fig)
 
 
-  if (a$df.residual == 0) {
+  if (fit$df == 0) {
     post = matrix(c(rep(fit$beta, nreps), rep(0, nreps)), nreps, 2)
   } else {
     # draw sigma and then beta given sigma from posterior
@@ -587,13 +625,14 @@ f_fit_ti <- function(df, model = "lm", nreps, showplot = TRUE) {
 
 
 #' @title Model Fitting for Dispensed Doses
-#' @description Fits a linear mixed-effects model to the dispensed doses.
+#' @description Fits a linear mixed-effects model to the dispensed doses
+#' at drug dispensing visits.
 #'
 #' @param df The subject-level dosing data, including \code{usubjid},
 #'   \code{day}, \code{drug}, and \code{dose}.
 #' @param model The model used to analyze the dispensed doses, with
-#'   options including "constant", "lm" for linear model, and
-#'   "lme" for linear mixed-effects model.
+#'   options including "constant", "linear model", and
+#'   "linear mixed-effects model".
 #' @param nreps The number of simulations for drawing posterior model
 #'   parameters.
 #' @param showplot A Boolean variable that controls whether or not to
@@ -653,7 +692,7 @@ f_fit_ti <- function(df, model = "lm", nreps, showplot = TRUE) {
 #'   mutate(row_id = row_number())
 #'
 #' vf1 <- vf %>% filter(drug == 3)
-#' fit_di <- f_fit_di(vf1, model = "lme", nreps = 200)
+#' fit_di <- f_fit_di(vf1, model = "linear mixed-effects model", nreps = 200)
 #'
 #' @export
 f_fit_di <- function(df, model, nreps, showplot = TRUE) {
@@ -663,7 +702,8 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
   N = length(unique(df$usubjid)) # number of unique subjects
 
   model = tolower(model)
-  erify::check_content(model, c("constant", "lm", "lme"))
+  erify::check_content(model, c("constant", "linear model",
+                                "linear mixed-effects model"))
 
   erify::check_n(nreps)
   erify::check_bool(showplot)
@@ -678,7 +718,7 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
 
   l = length(unique(df$dose))
   if (l == 1) {
-    fit <- list(model = "constant",
+    fit <- list(model = "Constant",
                 mud = df$dose[1],
                 vmud = 0,
                 sigmab = 0,
@@ -693,14 +733,14 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
     theta_fix = matrix(c(rep(fit$mud, nreps), rep(0, 2*nreps)), nreps, 3)
     theta_ran = matrix(0, nreps, N)
   } else {
-    if (l == 2 & model != "lm") {
-      model = "lm"
+    if (l == 2 & model != "linear model") {
+      model = "linear model"
     }
 
-    if (model == "lm") {
+    if (model == "linear model") {
       a <- lm(dose ~ 1, data = df)
 
-      fit <- list(model = "lm",
+      fit <- list(model = "Linear model",
                   mud = as.numeric(a$coefficients),
                   vmud = as.numeric(vcov(a)),
                   sigmab = 0,
@@ -718,10 +758,10 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
       b1 = fit$mud + rnorm(nreps)*sqrt(fit$vmud)/fit$sigmae*b2
       theta_fix = matrix(c(b1, rep(0, nreps), b2), nreps, 3)
       theta_ran = matrix(0, nreps, N)
-    } else if (model == "lme") {
+    } else if (model == "linear mixed-effects model") {
       a <- nlme::lme(dose ~ 1, random = ~ 1 | usubjid, data = df)
 
-      fit <- list(model = "lme",
+      fit <- list(model = "Linear mixed-effects model",
                   mud = as.numeric(a$coefficients$fixed),
                   vmud = as.numeric(vcov(a)),
                   sigmab = exp(as.numeric(attr(a$apVar, "Pars")))[1],
@@ -775,7 +815,7 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
 
   # graphically assess the model fit
   modeltext = fit$model
-  if (modeltext != "constant") {
+  if (modeltext != "Constant") {
     aictext = paste("AIC:", round(fit$aic,2))
     bictext = paste("BIC:", round(fit$bic,2))
   } else {
@@ -821,19 +861,25 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
 #'   \code{target_days}, \code{target_dose}, and \code{max_cycles}.
 #' @param model_k0 The model for the number of skipped
 #'   visits between randomization and the first drug dispensing visit.
-#'   Options include "constant", "poisson", "zip" for zero-inflated
-#'   Poisson, and "nb" for negative binomial.
+#'   Options include "constant", "poisson", "zero-inflated poisson",
+#'   and "negative binomial".
 #' @param model_t0 The model for the gap time between randomization
 #'   and the first drug dispensing visit when there is no visit skipping.
 #'   Options include "constant", "exponential", "weibull",
 #'   "log-logistic", and "log-normal".
+#' @param model_t1 The model for the gap time between randomization
+#'   and the first drug dispensing visit when there is visit skipping.
+#'   Options include "least squares", and "least absolute deviations".
 #' @param model_ki The model for the number of skipped
 #'   visits between two consecutive drug dispensing visits.
-#'   Options include "constant", "poisson", "zip" for zero-inflated
-#'   Poisson, and "nb" for negative binomial.
+#'   Options include "constant", "poisson", "zero-inflated poisson",
+#'   and "negative binomial".
+#' @param model_ti The model for the gap time between two consecutive
+#'   drug dispensing visits. Options include "least squares"
+#'   and "least absolute deviations".
 #' @param model_di The model for the dispensed doses at drug
 #'   dispensing visits. Options include "constant",
-#'   "lm" for linear model, and "lme" for linear mixed-effects model.
+#'   "linear model", and "linear mixed-effects model".
 #' @param nreps The number of simulations for drawing posterior model
 #'   parameters.
 #' @param showplot A Boolean variable that controls whether or not to
@@ -891,16 +937,36 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
 #'
 #' dispensing_models <- f_dispensing_models(
 #'   vf, dosing_schedule_df,
-#'   model_k0 = "zip", model_t0 = "log-logistic",
-#'   model_ki = "zip", model_di = "lme",
+#'   model_k0 = "zero-inflated poisson",
+#'   model_t0 = "log-logistic", model_t1 = "least squares",
+#'   model_ki = "zero-inflated poisson", model_ti = "least squares",
+#'   model_di = "linear mixed-effects model",
 #'   nreps = 200, showplot = FALSE)
 #'
 #' dispensing_models$fit_ki$fit_plot
 #
 #' @export
 f_dispensing_models <- function(
-    vf, dosing_schedule_df, model_k0, model_t0, model_ki, model_di,
+    vf, dosing_schedule_df,
+    model_k0, model_t0, model_t1, model_ki, model_ti, model_di,
     nreps, showplot = TRUE) {
+
+  erify::check_content(tolower(model_k0),
+                       c("constant", "poisson", "zero-inflated poisson",
+                         "negative binomial"))
+  erify::check_content(tolower(model_t0),
+                       c("constant", "exponential", "weibull",
+                         "log-logistic", "log-normal"))
+  erify::check_content(tolower(model_t1),
+                       c("least squares", "least absolute deviations"))
+  erify::check_content(tolower(model_ki),
+                       c("constant", "poisson", "zero-inflated poisson",
+                         "negative binomial"))
+  erify::check_content(tolower(model_ti),
+                       c("least squares", "least absolute deviations"))
+  erify::check_content(tolower(model_di),
+                       c("constant", "linear model",
+                         "linear mixed-effects model"))
 
   vf = vf %>% left_join(dosing_schedule_df, by = "drug")
   l = nrow(dosing_schedule_df)
@@ -920,9 +986,10 @@ f_dispensing_models <- function(
     # time from randomization to the first drug dispensing visit
     df_k0 <- vf1 %>%
       dplyr::filter(.data$row_id == 1) %>%
-      dplyr::mutate(time = .data$day,
-                    skipped = floor((.data$time - .data$target_days/2)/
-                                      .data$target_days) + 1)
+      dplyr::mutate(
+        time = .data$day,
+        skipped = floor((.data$time - .data$target_days/2)/
+                          .data$target_days) + 1)
 
     fit_k0 <- f_fit_ki(df_k0, model_k0, nreps, showplot)
 
@@ -939,7 +1006,7 @@ f_dispensing_models <- function(
       dplyr::mutate(k1 = .data$skipped)
 
     if (nrow(df_t1) == 0) {
-      fit_t1 <- list(fit = list(model = "lm",
+      fit_t1 <- list(fit = list(model = "Linear model",
                                 beta = 0,
                                 vbeta = 0,
                                 sigma = 0,
@@ -949,19 +1016,20 @@ f_dispensing_models <- function(
                      fit_plot = NA,
                      theta = matrix(0, nreps, 2))
     } else {
-      fit_t1 <- f_fit_ti(df_t1, "lm", nreps, showplot)
+      fit_t1 <- f_fit_ti(df_t1, model_t1, nreps, showplot)
     }
 
     # gap time and number of skipped visits between drug dispensing visits
     df_ti <- vf1 %>%
-      dplyr::mutate(time = dplyr::lead(.data$day) - .data$day,
-                    skipped = pmax(floor((.data$time - .data$target_days/2)/
-                                           .data$target_days), 0),
-                    k1 = .data$skipped + 1) %>%
+      dplyr::mutate(
+        time = dplyr::lead(.data$day) - .data$day,
+        skipped = pmax(floor((.data$time - .data$target_days/2)/
+                               .data$target_days), 0),
+        k1 = .data$skipped + 1) %>%
       dplyr::filter(.data$row_id < dplyr::n())
 
     fit_ki <- f_fit_ki(df_ti, model_ki, nreps, showplot)
-    fit_ti <- f_fit_ti(df_ti, "lm", nreps, showplot)
+    fit_ti <- f_fit_ti(df_ti, model_ti, nreps, showplot)
   } else {
     # fit separate models for k0, t0, t1, ki, ti across drugs
     common_time_model = FALSE
@@ -974,9 +1042,10 @@ f_dispensing_models <- function(
       # time from randomization to the first drug dispensing visit
       df_k0 <- vf1 %>%
         dplyr::filter(.data$row_id == 1) %>%
-        dplyr::mutate(time = .data$day,
-                      skipped = floor((.data$time - .data$target_days/2)/
-                                        .data$target_days) + 1)
+        dplyr::mutate(
+          time = .data$day,
+          skipped = floor((.data$time - .data$target_days/2)/
+                            .data$target_days) + 1)
 
       fit_k0[[h]] <- f_fit_ki(df_k0, model_k0, nreps, showplot)
 
@@ -993,7 +1062,13 @@ f_dispensing_models <- function(
         dplyr::mutate(k1 = .data$skipped)
 
       if (nrow(df_t1) == 0) {
-        fit_t1[[h]] <- list(fit = list(model = "lm",
+        if (tolower(model_t1) == "least squares") {
+          model_t1_x = "Least squares"
+        } else if (tolower(model_t1) == "least absolute deviations") {
+          model_t1_x = "Least absolute deviations"
+        }
+
+        fit_t1[[h]] <- list(fit = list(model = model_t1_x,
                                        beta = 0,
                                        vbeta = 0,
                                        sigma = 0,
@@ -1003,19 +1078,20 @@ f_dispensing_models <- function(
                             fit_plot = NA,
                             theta = matrix(0, nreps, 2))
       } else {
-        fit_t1[[h]] <- f_fit_ti(df_t1, "lm", nreps, showplot)
+        fit_t1[[h]] <- f_fit_ti(df_t1, model_t1, nreps, showplot)
       }
 
       # gap time and number of skipped visits between drug dispensing visits
       df_ti <- vf1 %>%
-        dplyr::mutate(time = dplyr::lead(.data$day) - .data$day,
-                      skipped = pmax(floor((.data$time - .data$target_days/2)/
-                                             .data$target_days), 0),
-                      k1 = .data$skipped + 1) %>%
+        dplyr::mutate(
+          time = dplyr::lead(.data$day) - .data$day,
+          skipped = pmax(floor((.data$time - .data$target_days/2)/
+                                 .data$target_days), 0),
+          k1 = .data$skipped + 1) %>%
         dplyr::filter(.data$row_id < dplyr::n())
 
       fit_ki[[h]] <- f_fit_ki(df_ti, model_ki, nreps, showplot)
-      fit_ti[[h]] <- f_fit_ti(df_ti, "lm", nreps, showplot)
+      fit_ti[[h]] <- f_fit_ti(df_ti, model_ti, nreps, showplot)
     }
   }
 
