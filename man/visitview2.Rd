@@ -5,20 +5,21 @@
 \alias{visitview2}
 \title{The observed subject drug dispensing data after enrollment completion.}
 \format{
-An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 5006 rows and 8 columns.
+An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) with 5006 rows and 9 columns.
 }
 \usage{
 visitview2
 }
 \description{
-A data frame with 5006 rows and 8 columns:
+A data frame with the following columns:
 \describe{
 \item{\code{usubjid}}{The unique subject ID.}
 \item{\code{visit}}{The drug dispensing visit, e.g., "Cycle 1 Day 1".}
 \item{\code{date}}{The date of the drug dispensing visit.}
 \item{\code{drug}}{The numeric code of the drug.}
 \item{\code{drug_name}}{The name of the drug.}
-\item{\code{dose_unit}}{The dose unit for drug dispensing.}
+\item{\code{kit}}{The numeric code of the kit type.}
+\item{\code{kit_name}}{The name of the kit type.}
 \item{\code{kit_number}}{The kit number for drug dispensing.}
 \item{\code{dispensed_quantity}}{The number of kits dispensed
 at the visit.}

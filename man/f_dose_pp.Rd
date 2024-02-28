@@ -6,8 +6,8 @@
 \usage{
 f_dose_pp(
   dosing_summary_t0,
-  newEvents,
-  treatment_by_drug_df,
+  vf_ongoing,
+  vf_new,
   dosing_schedule_df,
   t0,
   t,
@@ -17,25 +17,27 @@ f_dose_pp(
 \arguments{
 \item{dosing_summary_t0}{A data frame for the cumulative doses
 dispensed before the cutoff date. It contains the following
-variables: \code{drug}, \code{drug_name}, \code{dose_unit},
-and \code{cum_dose_t0}.}
+variables:
+\code{kit}, \code{kit_name}, and \code{cum_dose_t0}.}
 
-\item{newEvents}{A data frame containing the imputed event data
-for both ongoing and new patients, typically obtained from
-the output of the \code{getPrediction} function of the
-\code{eventPred} package. It contains the following variables:
-\code{draw}, \code{usubjid}, \code{arrivalTime}, \code{treatment},
-\code{treatment_description}, \code{time}, \code{event},
-\code{dropout}, and \code{totalTime}.}
+\item{vf_ongoing}{A data frame for the observed drug dispensing
+data for ongoing patients with drug dispensing records.
+It includes the following variables:
+\code{draw}, \code{kit}, \code{kit_name}, \code{usubjid},
+\code{day}, \code{dose}, \code{arrivalTime}, \code{treatment},
+\code{treatment_description}, \code{time}, and \code{totalTime}.}
 
-\item{treatment_by_drug_df}{A data frame indicating the treatments
-associated with each drug, including the following variables:
-\code{treatment}, \code{drug}, \code{drug_name}, and
-\code{dose_unit}.}
+\item{vf_new}{A data frame for the randomization date for new
+patients and ongoing patients with no drug dispensing records.
+It includes the following variables:
+\code{draw}, \code{kit}, \code{kit_name}, \code{usubjid},
+\code{arrivalTime}, \code{treatment}, \code{treatment_description},
+\code{time}, and \code{totalTime}.}
 
 \item{dosing_schedule_df}{A data frame providing dosing schedule
-information. It contains the following variables: \code{drug},
-\code{target_days}, \code{target_dose}, and \code{max_cycles}.}
+information. It contains the following variables:
+\code{kit}, \code{target_days}, \code{target_dose}, and
+\code{max_cycles}.}
 
 \item{t0}{The cutoff date relative to the trial start date.}
 
@@ -46,9 +48,8 @@ information. It contains the following variables: \code{drug},
 \value{
 A data frame for dosing summary by drug and time point per
 protocol. It contains the following variables:
-\code{drug}, \code{drug_name}, \code{dose_unit}, \code{t}, \code{n},
-\code{pilevel}, \code{lower}, \code{upper}, \code{mean},
-and \code{var}.
+\code{kit}, \code{kit_name}, \code{t}, \code{n}, \code{pilevel},
+\code{lower}, \code{upper}, \code{mean}, and \code{var}.
 }
 \description{
 Obtains drug demand prediction based on protocol-assumed
@@ -61,9 +62,6 @@ visit and dosing schedules.
 
 set.seed(312)
 library(dplyr)
-
-dosing_summary_t0 = drug_description_df \%>\%
-  dplyr::mutate(cum_dose_t0 = 0)
 
 pred <- eventPred::getPrediction(
   df = NULL,
@@ -98,12 +96,13 @@ pred <- eventPred::getPrediction(
                       "Drug C + Placebo",
                       "Drug A + Placebo"))
 
-newEvents <- pred$event_pred$newEvents
+dosing_summary_t0 = kit_description_df \%>\%
+  mutate(cum_dose_t0 = 0) \%>\%
+  select(-c("drug", "drug_name"))
 
-drug_name = drug_description_df$drug_name
-dose_unit = drug_description_df$dose_unit
-treatment_by_drug_df <- f_treatment_by_drug_df(
-  treatment_by_drug, drug_name, dose_unit)
+vf_ongoing_new <- f_ongoing_new(
+  pred$event_pred$newEvents, kit_description_df,
+  treatment_by_drug_df, NULL)
 
 t0 = 1
 nyears = 3
@@ -112,9 +111,8 @@ t = c(seq(t0, t1, 30), t1)
 pilevel = 0.95
 
 dosing_pred_pp <- f_dose_pp(
-  dosing_summary_t0, newEvents,
-  treatment_by_drug_df, dosing_schedule_df,
-  t0, t, pilevel)
+  dosing_summary_t0, vf_ongoing_new$vf_ongoing,
+  vf_ongoing_new$vf_new, dosing_schedule_df, t0, t, pilevel)
 
 head(dosing_pred_pp)
 }

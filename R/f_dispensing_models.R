@@ -28,15 +28,15 @@
 #' @return A list with three components:
 #' * \code{fit}: A list of results from the model fit that includes
 #'
-#'     + \code{model}: The specific model used in the analysis.
+#'     - \code{model}: The specific model used in the analysis.
 #'
-#'     + \code{theta}: The estimated model parameters.
+#'     - \code{theta}: The estimated model parameters.
 #'
-#'     + \code{vtheta}: The estimated covariance matrix of \code{theta}.
+#'     - \code{vtheta}: The estimated covariance matrix of \code{theta}.
 #'
-#'     + \code{aic}: The Akaike Information Criterion value.
+#'     - \code{aic}: The Akaike Information Criterion value.
 #'
-#'     + \code{bic}: The Bayesian Information Criterion value.
+#'     - \code{bic}: The Bayesian Information Criterion value.
 #'
 #' * \code{fit_plot}: A fitted time-to-event bar chart.
 #'
@@ -47,34 +47,13 @@
 #' @examples
 #' library(dplyr)
 #'
-#' df <- df2 %>%
-#'   mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
+#' observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
+#' vf <- observed$vf
 #'
-#' vf <- visitview2 %>%
-#'   inner_join(df, by = "usubjid") %>%
-#'   mutate(day = as.numeric(date - randdt + 1)) %>%
-#'   select(drug, drug_name, dose_unit, usubjid, treatment,
-#'          treatment_description, arrivalTime,
-#'          time, event, dropout, day, dispensed_quantity) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid, treatment,
-#'            treatment_description, arrivalTime,
-#'            time, event, dropout, day) %>%
-#'   summarise(dose = sum(dispensed_quantity), .groups = "drop_last") %>%
-#'   mutate(cum_dose = cumsum(dose)) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid) %>%
-#'   mutate(row_id = row_number())
-#'
-#' vf <- vf %>%
-#'   left_join(dosing_schedule_df, by = "drug")
-#'
-#' vf1 <- vf %>%
-#'   group_by(usubjid, day) %>%
-#'   slice(n()) %>%
-#'   group_by(usubjid) %>%
-#'   mutate(row_id = row_number())
+#' vf <- vf %>% left_join(dosing_schedule_df, by = "kit")
 #'
 #' # time from randomization to the first drug dispensing visit
-#' df_k0 <- vf1 %>%
+#' df_k0 <- vf %>%
 #'   filter(row_id == 1) %>%
 #'   mutate(time = day,
 #'          skipped = floor((time - target_days/2)/target_days) + 1)
@@ -84,7 +63,7 @@
 #'   filter(skipped == 0) %>%
 #'   mutate(left = time - 1, right = time)
 #'
-#' fit_t0 <- f_fit_t0(df_t0, model = "log-logistic", nreps = 200)
+#' t0_fit <- f_fit_t0(df_t0, model = "log-logistic", nreps = 200)
 #'
 #' @export
 f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
@@ -124,31 +103,51 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
       model = "exponential"
     }
 
+    f_nloglik <- function(theta, df, model) {
+      if (tolower(model) == "exponential") {
+        -sum(log(pexp(df$right, exp(theta)) -
+                   pexp(df$left, exp(theta))))
+      } else if (tolower(model) == "weibull") {
+        -sum(log(pweibull(df$right, exp(-theta[2]), exp(theta[1])) -
+                   pweibull(df$left, exp(-theta[2]), exp(theta[1]))))
+      } else if (tolower(model) == "log-logistic") {
+        -sum(log(plogis(log(df$right), theta[1], exp(theta[2])) -
+                   plogis(log(df$left), theta[1], exp(theta[2]))))
+      } else if (tolower(model) == "log-normal") {
+        -sum(log(pnorm(log(df$right), theta[1], exp(theta[2])) -
+                   pnorm(log(df$left), theta[1], exp(theta[2]))))
+      }
+    }
+
     if (model == "exponential") {
-      a <- icenReg::ic_par(cbind(left, right) ~ 1, data = df,
-                           model = "ph", dist = "exponential")
+      a <- survreg(Surv(right) ~ 1, data = df, dist = "exponential")
+      theta = -as.numeric(a$coefficients)
+
+      opt = optim(theta, f_nloglik, gr = NULL, df, model,
+                  method = "Brent", lower = theta - 2, upper = theta + 2,
+                  hessian = TRUE)
 
       fit <- list(model = "Exponential",
-                  theta = -as.numeric(a$coefficients),  # log(rate)
-                  vtheta = as.numeric(a$var),
-                  aic = -2*a$llk + 2,
-                  bic = -2*a$llk + log(n))
+                  theta = opt$par,
+                  vtheta = as.numeric(solve(opt$hessian)),
+                  aic = 2*opt$value + 2,
+                  bic = 2*opt$value + log(n))
 
       rate = exp(fit$theta)
       p.fit = pexp(y+1, rate) - pexp(y, rate)
 
       post = rnorm(nreps, mean = fit$theta, sd = sqrt(fit$vtheta))
     } else if (model == "weibull") {
-      a <- icenReg::ic_par(cbind(left, right) ~ 1, data = df,
-                           model = "ph", dist = "weibull")
+      a <- survreg(Surv(right) ~ 1, data = df, dist = "weibull")
+      theta = c(as.numeric(a$coefficients), log(a$scale))
 
-      # convert to (log(lambda) = log_scale, -log(kappa) = -log_shape)
-      const = matrix(c(0, 1, -1, 0), 2, 2, byrow = TRUE)
+      opt = optim(theta, f_nloglik, gr = NULL, df, model, hessian = TRUE)
+
       fit <- list(model = "Weibull",
-                  theta = c(const %*% a$coefficients),
-                  vtheta = const %*% a$var %*% t(const),
-                  aic = -2*a$llk + 4,
-                  bic = -2*a$llk + 2*log(n))
+                  theta = opt$par,
+                  vtheta = matrix(solve(opt$hessian), 2, 2),
+                  aic = 2*opt$value + 4,
+                  bic = 2*opt$value + 2*log(n))
 
       lambda = exp(fit$theta[1])
       k = exp(-fit$theta[2])
@@ -156,16 +155,16 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 
       post = mvtnorm::rmvnorm(nreps, mean = fit$theta, sigma = fit$vtheta)
     } else if (model == "log-logistic") {
-      a <- icenReg::ic_par(cbind(left, right) ~ 1, data = df,
-                           model = "ph", dist = "loglogistic")
+      a <- survreg(Surv(right) ~ 1, data = df, dist = "loglogistic")
+      theta = c(as.numeric(a$coefficients), log(a$scale))
 
-      # convert to (mu = log_scale, log(sigma) = -log_shape)
-      const = matrix(c(1, 0, 0, -1), 2, 2, byrow = TRUE)
+      opt = optim(theta, f_nloglik, gr = NULL, df, model, hessian = TRUE)
+
       fit <- list(model = "Log-logistic",
-                  theta = c(const %*% a$coefficients),
-                  vtheta = const %*% a$var %*% t(const),
-                  aic = -2*a$llk + 4,
-                  bic = -2*a$llk + 2*log(n))
+                  theta = opt$par,
+                  vtheta = matrix(solve(opt$hessian), 2, 2),
+                  aic = 2*opt$value + 4,
+                  bic = 2*opt$value + 2*log(n))
 
       mu = fit$theta[1]
       sigma = exp(fit$theta[2])
@@ -173,15 +172,16 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 
       post = mvtnorm::rmvnorm(nreps, mean = fit$theta, sigma = fit$vtheta)
     } else if (model == "log-normal") {
-      a <- icenReg::ic_par(cbind(left, right) ~ 1, data = df,
-                           model = "ph", dist = "lnorm")
+      a <- survreg(Surv(right) ~ 1, data = df, dist = "lognormal")
+      theta = c(as.numeric(a$coefficients), log(a$scale))
 
-      # parametrization: (mu = mean.log, log(sigma) = log(sd.log))
+      opt = optim(theta, f_nloglik, gr = NULL, df, model, hessian = TRUE)
+
       fit <- list(model = "Log-normal",
-                  theta = as.numeric(a$coefficients),
-                  vtheta = a$var,
-                  aic = -2*a$llk + 4,
-                  bic = -2*a$llk + 2*log(n))
+                  theta = opt$par,
+                  vtheta = matrix(solve(opt$hessian), 2, 2),
+                  aic = 2*opt$value + 4,
+                  bic = 2*opt$value + 2*log(n))
 
       mu = fit$theta[1]
       sigma = exp(fit$theta[2])
@@ -193,19 +193,18 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
     }
   }
 
-
   # graphically assess the model fit
-  modeltext = fit$model
-  if (modeltext != "Constant") {
-    aictext = paste("AIC:", round(fit$aic,2))
-    bictext = paste("BIC:", round(fit$bic,2))
+  if (fit$model != "Constant") {
+    modeltext = fit$model
+    aictext = paste("AIC:", formatC(fit$aic, format = "f", digits = 2))
+    bictext = paste("BIC:", formatC(fit$bic, format = "f", digits = 2))
   } else {
     modeltext = ""
     aictext = ""
     bictext = ""
   }
 
-  gf <- dplyr::tibble(y = y, p.obs = p.obs, p.fit = p.fit)
+  gf <- tibble(y = y, p.obs = p.obs, p.fit = p.fit)
 
   fig <- plotly::plot_ly(gf, x = ~y, y = ~p.obs, type = 'bar',
                          name = 'Observed')
@@ -249,15 +248,15 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 #'
 #' * \code{fit}: A list of results from the model fit that includes
 #'
-#'     + \code{model}: The specific model used in the analysis.
+#'     - \code{model}: The specific model used in the analysis.
 #'
-#'     + \code{theta}: The estimated model parameters.
+#'     - \code{theta}: The estimated model parameters.
 #'
-#'     + \code{vtheta}: The estimated covariance matrix of \code{theta}.
+#'     - \code{vtheta}: The estimated covariance matrix of \code{theta}.
 #'
-#'     + \code{aic}: The Akaike Information Criterion value.
+#'     - \code{aic}: The Akaike Information Criterion value.
 #'
-#'     + \code{bic}: The Bayesian Information Criterion value.
+#'     - \code{bic}: The Bayesian Information Criterion value.
 #'
 #' * \code{fit_plot}: A fitted count bar chart.
 #'
@@ -268,39 +267,18 @@ f_fit_t0 <- function(df, model, nreps, showplot = TRUE) {
 #' @examples
 #' library(dplyr)
 #'
-#' df <- df2 %>%
-#' mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
+#' observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
+#' vf <- observed$vf
 #'
-#' vf <- visitview2 %>%
-#'   inner_join(df, by = "usubjid") %>%
-#'   mutate(day = as.numeric(date - randdt + 1)) %>%
-#'   select(drug, drug_name, dose_unit, usubjid, treatment,
-#'          treatment_description, arrivalTime,
-#'          time, event, dropout, day, dispensed_quantity) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid, treatment,
-#'            treatment_description, arrivalTime,
-#'            time, event, dropout, day) %>%
-#'   summarise(dose = sum(dispensed_quantity), .groups = "drop_last") %>%
-#'   mutate(cum_dose = cumsum(dose)) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid) %>%
-#'   mutate(row_id = row_number())
+#' vf <- vf %>% left_join(dosing_schedule_df, by = "kit")
 #'
-#' vf <- vf %>%
-#'   left_join(dosing_schedule_df, by = "drug")
-#'
-#' vf1 <- vf %>%
-#'   group_by(usubjid, day) %>%
-#'   slice(n()) %>%
-#'   group_by(usubjid) %>%
-#'   mutate(row_id = row_number())
-#'
-#' df_ti <- vf1 %>%
+#' df_ti <- vf %>%
 #'   mutate(time = lead(day) - day,
 #'          skipped = pmax(floor((time - target_days/2)/target_days), 0),
 #'          k1 = skipped + 1) %>%
 #'   filter(row_id < n())
 #'
-#' fit_ki <- f_fit_ki(df_ti, model = "zero-inflated poisson", nreps = 200)
+#' ki_fit <- f_fit_ki(df_ti, model = "zero-inflated poisson", nreps = 200)
 #'
 #' @export
 f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
@@ -345,7 +323,7 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
       a <- glm(skipped ~ 1, family = poisson(link = "log"), data = df)
 
       fit <- list(model = "Poisson",
-                  theta = as.numeric(a$coefficients),  # log(rate)
+                  theta = as.numeric(a$coefficients),
                   vtheta = as.numeric(vcov(a)),
                   aic = a$aic,
                   bic = a$aic - 2 + log(n))
@@ -355,18 +333,25 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
 
       post = rnorm(nreps, mean = fit$theta, sd = sqrt(fit$vtheta))
     } else if (model == "zero-inflated poisson") {
-      a <- pscl::zeroinfl(skipped ~ 1 | 1, data = df, dist = "poisson")
+      f_nloglik <- function(theta, df) {
+        lambda = exp(theta[1])
+        pi = plogis(theta[2])
+        -sum(log(pi*(df$skipped == 0) + (1-pi)*dpois(df$skipped, lambda)))
+      }
+
+      theta = c(log(sum(df$skipped)/n), 0)
+      opt <- optim(theta, f_nloglik, gr = NULL, df, hessian = TRUE)
 
       fit <- list(model = "Zero-inflated Poisson",
-                  theta = as.numeric(a$coefficients),
-                  vtheta = vcov(a),
-                  aic = -2*a$loglik + 4,
-                  bic = -2*a$loglik + 2*log(n))
+                  theta = opt$par,
+                  vtheta = matrix(solve(opt$hessian), 2, 2),
+                  aic = 2*opt$value + 4,
+                  bic = 2*opt$value + 2*log(n))
 
       lambda = exp(fit$theta[1])
       pi = plogis(fit$theta[2])
 
-      p.fit <- c(pi + (1-pi)*dpois(0, lambda), (1-pi)*dpois(y[-1], lambda))
+      p.fit <- pi*(y == 0) + (1-pi)*dpois(y, lambda)
 
       post = mvtnorm::rmvnorm(nreps, mean = fit$theta, sigma = fit$vtheta)
     } else if (model == "negative binomial") {
@@ -391,19 +376,18 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
     }
   }
 
-
   # graphically assess the model fit
-  modeltext = fit$model
-  if (modeltext != "Constant") {
-    aictext = paste("AIC:", round(fit$aic,2))
-    bictext = paste("BIC:", round(fit$bic,2))
+  if (fit$model != "Constant") {
+    modeltext = fit$model
+    aictext = paste("AIC:", formatC(fit$aic, format = "f", digits = 2))
+    bictext = paste("BIC:", formatC(fit$bic, format = "f", digits = 2))
   } else {
     modeltext = ""
     aictext = ""
     bictext = ""
   }
 
-  gf <- dplyr::tibble(y = y, p.obs = p.obs, p.fit = p.fit)
+  gf <- tibble(y = y, p.obs = p.obs, p.fit = p.fit)
 
   fig <- plotly::plot_ly(gf, x = ~y, y = ~p.obs, type = 'bar',
                          name = 'Observed')
@@ -453,19 +437,19 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
 #'
 #' * \code{fit}: A list of results from the model fit that includes
 #'
-#'     + \code{model}: The specific model used in the analysis.
+#'     - \code{model}: The specific model used in the analysis.
 #'
-#'     + \code{beta}: The estimated regression coefficient for the covariate.
+#'     - \code{beta}: The estimated regression coefficient for the covariate.
 #'
-#'     + \code{vbeta}: The estimated variance of \code{beta}.
+#'     - \code{vbeta}: The estimated variance of \code{beta}.
 #'
-#'     + \code{sigma}: The estimated residual standard deviation.
+#'     - \code{sigma}: The estimated residual standard deviation.
 #'
-#'     + \code{df}: The residual degrees-of-freedom.
+#'     - \code{df}: The residual degrees-of-freedom.
 #'
-#'     + \code{aic}: The Akaike Information Criterion value.
+#'     - \code{aic}: The Akaike Information Criterion value.
 #'
-#'     + \code{bic}: The Bayesian Information Criterion value.
+#'     - \code{bic}: The Bayesian Information Criterion value.
 #'
 #' * \code{fit_plot}: A fitted gap time bar chart.
 #'
@@ -476,39 +460,18 @@ f_fit_ki <- function(df, model, nreps, showplot = TRUE) {
 #' @examples
 #' library(dplyr)
 #'
-#' df <- df2 %>%
-#' mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
+#' observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
+#' vf <- observed$vf
 #'
-#' vf <- visitview2 %>%
-#'   inner_join(df, by = "usubjid") %>%
-#'   mutate(day = as.numeric(date - randdt + 1)) %>%
-#'   select(drug, drug_name, dose_unit, usubjid, treatment,
-#'          treatment_description, arrivalTime,
-#'          time, event, dropout, day, dispensed_quantity) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid, treatment,
-#'            treatment_description, arrivalTime,
-#'            time, event, dropout, day) %>%
-#'   summarise(dose = sum(dispensed_quantity), .groups = "drop_last") %>%
-#'   mutate(cum_dose = cumsum(dose)) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid) %>%
-#'   mutate(row_id = row_number())
+#' vf <- vf %>% left_join(dosing_schedule_df, by = "kit")
 #'
-#' vf <- vf %>%
-#'   left_join(dosing_schedule_df, by = "drug")
-#'
-#' vf1 <- vf %>%
-#'   group_by(usubjid, day) %>%
-#'   slice(n()) %>%
-#'   group_by(usubjid) %>%
-#'   mutate(row_id = row_number())
-#'
-#' df_ti <- vf1 %>%
+#' df_ti <- vf %>%
 #'   mutate(time = lead(day) - day,
 #'          skipped = pmax(floor((time - target_days/2)/target_days), 0),
 #'          k1 = skipped + 1) %>%
 #'   filter(row_id < n())
 #'
-#' fit_ti <- f_fit_ti(df_ti, model = "least squares", nreps = 200)
+#' ti_fit <- f_fit_ti(df_ti, model = "least squares", nreps = 200)
 #'
 #' @export
 f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
@@ -529,7 +492,12 @@ f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
   p.obs = rep(0, length(y))
   p.obs[findInterval(y.obs, y)] = count/sum(count)
 
-  if (nrow(df) == 1) {
+  # number of unique combinations of response and covariates
+  df_unique <- df %>%
+    group_by(.data$time, .data$k1) %>%
+    slice(1)
+
+  if (nrow(df_unique) == 1) {
     fit <- list(model = "Constant",
                 beta = df$time[1]/df$k1[1],
                 vbeta = 0,
@@ -550,9 +518,11 @@ f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
                 aic = as.numeric(AIC(a)),
                 bic = as.numeric(BIC(a)))
 
+    mu = fit$beta*df$k1
+    b = fit$sigma
+
     p.fit <- purrr::map_vec(y, function(y) {
-      mean(pnorm((y + 0.5 - fit$beta*df$k1)/fit$sigma) -
-             pnorm((y - 0.5 - fit$beta*df$k1)/fit$sigma))
+      mean(pnorm(y + 0.5, mu, b) - pnorm(y - 0.5, mu, b))
     })
   } else if (model == "least absolute deviations") {
     a <- L1pack::lad(time ~ k1 - 1, data = df)
@@ -565,27 +535,24 @@ f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
                 aic = as.numeric(AIC(a)),
                 bic = as.numeric(BIC(a)))
 
-    p.fit <- purrr::map_vec(y, function(y) {
-      d <- df %>%
-        dplyr::mutate(x1 = y+0.5-fit$beta*.data$k1,
-                      x2 = y-0.5-fit$beta*.data$k1,
-                      t1 = exp(.data$x1/fit$sigma),
-                      t2 = exp(.data$x2/fit$sigma)) %>%
-        dplyr::mutate(prob = ifelse(
-          .data$x1 < 0, 0.5*(.data$t1 - .data$t2),
-          ifelse(.data$x2 > 0, 0.5*(-1/.data$t1 + 1/.data$t2),
-                 1 - 0.5*(1/.data$t1 + .data$t2))))
+    plaplace <- function(x, mu, b) {
+      0.5*exp((x-mu)/b)*(x <= mu) + (1 - 0.5*exp(-(x-mu)/b))*(x > mu)
+    }
 
-      mean(d$prob)
+    mu = fit$beta*df$k1
+    b = fit$sigma
+
+    p.fit <- purrr::map_vec(y, function(y) {
+      mean(plaplace(y + 0.5, mu, b) - plaplace(y - 0.5, mu, b))
     })
   }
 
-  gf = dplyr::tibble(y = y, p.obs = p.obs, p.fit = p.fit)
+  gf = tibble(y = y, p.obs = p.obs, p.fit = p.fit)
 
-  modeltext = fit$model
-  if (modeltext != "Constant") {
-    aictext = paste("AIC:", round(fit$aic,2))
-    bictext = paste("BIC:", round(fit$bic,2))
+  if (fit$model != "Constant") {
+    modeltext = fit$model
+    aictext = paste("AIC:", formatC(fit$aic, format = "f", digits = 2))
+    bictext = paste("BIC:", formatC(fit$bic, format = "f", digits = 2))
   } else {
     modeltext = ""
     aictext = ""
@@ -610,7 +577,6 @@ f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
 
   if (showplot) print(fig)
 
-
   if (fit$df == 0) {
     post = matrix(c(rep(fit$beta, nreps), rep(0, nreps)), nreps, 2)
   } else {
@@ -629,7 +595,7 @@ f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
 #' at drug dispensing visits.
 #'
 #' @param df The subject-level dosing data, including \code{usubjid},
-#'   \code{day}, \code{drug}, and \code{dose}.
+#'   \code{day}, \code{kit}, and \code{dose}.
 #' @param model The model used to analyze the dispensed doses, with
 #'   options including "constant", "linear model", and
 #'   "linear mixed-effects model".
@@ -642,31 +608,31 @@ f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
 #'
 #' * \code{fit}: A list of results from the model fit that includes
 #'
-#'     + \code{model}: The specific model used in the analysis.
+#'     - \code{model}: The specific model used in the analysis.
 #'
-#'     + \code{mud}: The estimated mean dose.
+#'     - \code{mud}: The estimated mean dose.
 #'
-#'     + \code{vmud}: The estimated variance of \code{mud}.
+#'     - \code{vmud}: The estimated variance of \code{mud}.
 #'
-#'     + \code{sigmab}: The estimated between-subject standard deviation.
+#'     - \code{sigmab}: The estimated between-subject standard deviation.
 #'
-#'     + \code{sigmae}: The estimated within-subject residual standard
+#'     - \code{sigmae}: The estimated within-subject residual standard
 #'       deviation.
 #'
-#'     + \code{aic}: The Akaike Information Criterion value.
+#'     - \code{aic}: The Akaike Information Criterion value.
 #'
-#'     + \code{bic}: The Bayesian Information Criterion value.
+#'     - \code{bic}: The Bayesian Information Criterion value.
 #'
 #' * \code{fit_plot}: A fitted dose bar chart.
 #'
 #' * \code{theta}: Posterior draws of model parameters.
 #'
-#'     + \code{fixed}: Posterior draws of fixed model parameters:
+#'     - \code{fixed}: Posterior draws of fixed model parameters:
 #'       \code{mud}, \code{sigmab}, and \code{sigmae}.
 #'
-#'     + \code{random}: Posterior draws of subject random effects.
+#'     - \code{random}: Posterior draws of subject random effects.
 #'
-#'     + \code{usubjid}: The unique subject ID associated with
+#'     - \code{usubjid}: The unique subject ID associated with
 #'       the subject random effects.
 #'
 #' @author Kaifeng Lu, \email{kaifenglu@@gmail.com}
@@ -674,25 +640,11 @@ f_fit_ti <- function(df, model, nreps, showplot = TRUE) {
 #' @examples
 #' library(dplyr)
 #'
-#' df <- df2 %>%
-#'   mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
+#' observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
+#' vf <- observed$vf
 #'
-#' vf <- visitview2 %>%
-#'   inner_join(df, by = "usubjid") %>%
-#'   mutate(day = as.numeric(date - randdt + 1)) %>%
-#'   select(drug, drug_name, dose_unit, usubjid, treatment,
-#'          treatment_description, arrivalTime,
-#'          time, event, dropout, day, dispensed_quantity) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid, treatment,
-#'            treatment_description, arrivalTime,
-#'            time, event, dropout, day) %>%
-#'   summarise(dose = sum(dispensed_quantity), .groups = "drop_last") %>%
-#'   mutate(cum_dose = cumsum(dose)) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid) %>%
-#'   mutate(row_id = row_number())
-#'
-#' vf1 <- vf %>% filter(drug == 3)
-#' fit_di <- f_fit_di(vf1, model = "linear mixed-effects model", nreps = 200)
+#' vf1 <- vf %>% filter(kit == 3)
+#' di_fit <- f_fit_di(vf1, model = "linear mixed-effects model", nreps = 200)
 #'
 #' @export
 f_fit_di <- function(df, model, nreps, showplot = TRUE) {
@@ -728,7 +680,7 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
 
     p.fit = 1
 
-    gf = dplyr::tibble(y = y, p.obs = p.obs, p.fit = p.fit)
+    gf = tibble(y = y, p.obs = p.obs, p.fit = p.fit)
 
     theta_fix = matrix(c(rep(fit$mud, nreps), rep(0, 2*nreps)), nreps, 3)
     theta_ran = matrix(0, nreps, N)
@@ -751,39 +703,41 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
       p.fit = pnorm(y + 0.5, fit$mud, fit$sigmae) -
         pnorm(y - 0.5, fit$mud, fit$sigmae)
 
-      gf = dplyr::tibble(y = y, p.obs = p.obs, p.fit = p.fit)
+      gf = tibble(y = y, p.obs = p.obs, p.fit = p.fit)
 
       # draw sigmae and then mud given sigmae from posterior
       b2 = sqrt(a$df.residual * fit$sigmae^2 / rchisq(nreps, a$df.residual))
-      b1 = fit$mud + rnorm(nreps)*sqrt(fit$vmud)/fit$sigmae*b2
+      b1 = fit$mud + rnorm(nreps) * sqrt(fit$vmud) / fit$sigmae * b2
       theta_fix = matrix(c(b1, rep(0, nreps), b2), nreps, 3)
       theta_ran = matrix(0, nreps, N)
     } else if (model == "linear mixed-effects model") {
       a <- nlme::lme(dose ~ 1, random = ~ 1 | usubjid, data = df)
 
+      vc <- matrix(as.numeric(nlme::VarCorr(a)), 2, 2)
+
       fit <- list(model = "Linear mixed-effects model",
                   mud = as.numeric(a$coefficients$fixed),
                   vmud = as.numeric(vcov(a)),
-                  sigmab = exp(as.numeric(attr(a$apVar, "Pars")))[1],
-                  sigmae = exp(as.numeric(attr(a$apVar, "Pars")))[2],
+                  sigmab = vc[1,2],
+                  sigmae = vc[2,2],
                   aic = as.numeric(AIC(a)),
                   bic = as.numeric(BIC(a)))
 
-      est = as.numeric(a$fitted[,"usubjid"])
+      # mean incorporating subject random effects
+      mu = as.numeric(a$fitted[,"usubjid"])
       sigmae = fit$sigmae
 
       p.fit <- purrr::map_vec(y, function(y) {
-        mean(pnorm((y + 0.5 - est)/sigmae) - pnorm((y - 0.5 - est)/sigmae))
+        mean(pnorm(y + 0.5, mu, sigmae) - pnorm(y - 0.5, mu, sigmae))
       })
 
-      gf = dplyr::tibble(y = y, p.obs = p.obs, p.fit = p.fit)
+      gf = tibble(y = y, p.obs = p.obs, p.fit = p.fit)
 
       # number of observations and mean dose by subject
       df1 <- df %>%
-        dplyr::summarise(n = dplyr::n(), d = mean(.data$dose),
-                         .groups = "drop_last")
+        summarise(n = n(), d = mean(.data$dose), .groups = "drop_last")
 
-      # fix the variance parameters to avoid drawing too extreme values
+      # fix the variance parameters to avoid drawing extreme values
       # of sigma_b due to the large variance of log(sigma_b) in case that
       # the variance component is likely to be zero
       sigma_b = rep(fit$sigmab, nreps)
@@ -814,10 +768,10 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
   post = list(fixed = theta_fix, random = theta_ran, usubjid = usubjid)
 
   # graphically assess the model fit
-  modeltext = fit$model
-  if (modeltext != "Constant") {
-    aictext = paste("AIC:", round(fit$aic,2))
-    bictext = paste("BIC:", round(fit$bic,2))
+  if (fit$model != "Constant") {
+    modeltext = fit$model
+    aictext = paste("AIC:", formatC(fit$aic, format = "f", digits = 2))
+    bictext = paste("BIC:", formatC(fit$bic, format = "f", digits = 2))
   } else {
     modeltext = ""
     aictext = ""
@@ -852,13 +806,14 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
 #'
 #' @param vf A data frame for subject-level drug dispensing data,
 #'   including the following variables:
-#'   \code{drug}, \code{drug_name}, \code{dose_unit},
+#'   \code{drug}, \code{drug_name}, \code{kit}, \code{kit_name},
 #'   \code{usubjid}, \code{treatment}, \code{treatment_description},
 #'   \code{arrivalTime}, \code{time}, \code{event}, \code{dropout},
 #'   \code{day}, \code{dose}, \code{cum_dose}, and \code{row_id}.
 #' @param dosing_schedule_df A data frame providing dosing schedule
-#'   information. It contains the following variables: \code{drug},
-#'   \code{target_days}, \code{target_dose}, and \code{max_cycles}.
+#'   information. It contains the following variables:
+#'   \code{kit}, \code{target_days}, \code{target_dose}, and
+#'   \code{max_cycles}.
 #' @param model_k0 The model for the number of skipped
 #'   visits between randomization and the first drug dispensing visit.
 #'   Options include "constant", "poisson", "zero-inflated poisson",
@@ -890,24 +845,24 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
 #' * \code{common_time_model}: A Boolean variable that indicates
 #'   whether a common time model is used for drug dispensing visits.
 #'
-#' * \code{fit_k0}: The model fit for the number of skipped
+#' * \code{k0_fit}: The model fit for the number of skipped
 #'   visits between randomization and the first drug dispensing visit.
 #'
-#' * \code{fit_t0}: The model fit for the gap time between
+#' * \code{t0_fit}: The model fit for the gap time between
 #'   randomization and the first drug dispensing visit when there is
 #'   no visit skipping.
 #'
-#' * \code{fit_t1}: The model fit for the gap time between
+#' * \code{t1_fit}: The model fit for the gap time between
 #'   randomization and the first drug dispensing visit when there is
 #'   visit skipping.
 #'
-#' * \code{fit_ki}: The model fit for the number of skipped
+#' * \code{ki_fit}: The model fit for the number of skipped
 #'   visits between two consecutive drug dispensing visits.
 #'
-#' * \code{fit_ti}: The model fit for the gap time between two
+#' * \code{ti_fit}: The model fit for the gap time between two
 #'   consecutive drug dispensing visits.
 #'
-#' * \code{fit_di}: The model fit for the dispensed doses at drug
+#' * \code{di_fit}: The model fit for the dispensed doses at drug
 #'   dispensing visits.
 #'
 #' @author Kaifeng Lu, \email{kaifenglu@@gmail.com}
@@ -918,38 +873,24 @@ f_fit_di <- function(df, model, nreps, showplot = TRUE) {
 #' @examples
 #' library(dplyr)
 #'
-#' df <- df2 %>%
-#'   mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
-#'
-#' vf <- visitview2 %>%
-#'   inner_join(df, by = "usubjid") %>%
-#'   mutate(day = as.numeric(date - randdt + 1)) %>%
-#'   select(drug, drug_name, dose_unit, usubjid, treatment,
-#'          treatment_description, arrivalTime,
-#'          time, event, dropout, day, dispensed_quantity) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid, treatment,
-#'            treatment_description, arrivalTime,
-#'            time, event, dropout, day) %>%
-#'   summarise(dose = sum(dispensed_quantity), .groups = "drop_last") %>%
-#'   mutate(cum_dose = cumsum(dose)) %>%
-#'   group_by(drug, drug_name, dose_unit, usubjid) %>%
-#'   mutate(row_id = row_number())
+#' observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
 #'
 #' dispensing_models <- f_dispensing_models(
-#'   vf, dosing_schedule_df,
+#'   observed$vf, dosing_schedule_df,
 #'   model_k0 = "zero-inflated poisson",
-#'   model_t0 = "log-logistic", model_t1 = "least squares",
-#'   model_ki = "zero-inflated poisson", model_ti = "least squares",
+#'   model_t0 = "log-logistic",
+#'   model_t1 = "least squares",
+#'   model_ki = "zero-inflated poisson",
+#'   model_ti = "least squares",
 #'   model_di = "linear mixed-effects model",
 #'   nreps = 200, showplot = FALSE)
 #'
-#' dispensing_models$fit_ki$fit_plot
+#' dispensing_models$ki_fit$fit_plot
 #
 #' @export
 f_dispensing_models <- function(
-    vf, dosing_schedule_df,
-    model_k0, model_t0, model_t1, model_ki, model_ti, model_di,
-    nreps, showplot = TRUE) {
+    vf, dosing_schedule_df, model_k0, model_t0, model_t1,
+    model_ki, model_ti, model_di, nreps, showplot = TRUE) {
 
   erify::check_content(tolower(model_k0),
                        c("constant", "poisson", "zero-inflated poisson",
@@ -968,144 +909,155 @@ f_dispensing_models <- function(
                        c("constant", "linear model",
                          "linear mixed-effects model"))
 
-  vf = vf %>% left_join(dosing_schedule_df, by = "drug")
+  vf = vf %>% left_join(dosing_schedule_df, by = "kit")
   l = nrow(dosing_schedule_df)
 
+  vf0 <- vf %>%
+    group_by(.data$kit, .data$kit_name) %>%
+    slice(1)
+
+  kit_name = vf0$kit_name
+
+  f_kit_name <- function(fit_plot, kit_name, h) {
+    fit_plot %>%
+      plotly::layout(
+        annotations = list(
+          x = 0.5, y = 1,
+          text = paste0("<b>", kit_name[h], "</b>"),
+          xanchor = "center", yanchor = "middle",
+          showarrow = FALSE, xref='paper', yref='paper'))
+  }
+
   if (length(unique(dosing_schedule_df$target_days)) == 1) {
-    # fit a common model for k0, t0, t1, ki, and ti across drugs
+    # fit a common model for k0, t0, t1, ki, and ti across kit types
     common_time_model = TRUE
 
-    # only keep one record per subject and drug dispensing day
-    # need to redefine row_id due to drug dispensing at unscheduled visits
-    vf1 <- vf %>%
-      dplyr::group_by(.data$usubjid, .data$day) %>%
-      dplyr::slice(dplyr::n()) %>%
-      dplyr::group_by(.data$usubjid) %>%
-      dplyr::mutate(row_id = dplyr::row_number())
-
     # time from randomization to the first drug dispensing visit
-    df_k0 <- vf1 %>%
-      dplyr::filter(.data$row_id == 1) %>%
-      dplyr::mutate(
-        time = .data$day,
-        skipped = floor((.data$time - .data$target_days/2)/
-                          .data$target_days) + 1)
+    df_k0 <- vf %>%
+      filter(.data$row_id == 1) %>%
+      mutate(time = .data$day,
+             skipped = floor((.data$time - .data$target_days/2)/
+                               .data$target_days) + 1)
 
-    fit_k0 <- f_fit_ki(df_k0, model_k0, nreps, showplot)
+    k0_fit <- f_fit_ki(df_k0, model_k0, nreps, showplot)
 
     # no skipping
     df_t0 <- df_k0 %>%
-      dplyr::filter(.data$skipped == 0) %>%
-      dplyr::mutate(left = .data$time - 1, right = .data$time)
+      filter(.data$skipped == 0) %>%
+      mutate(left = .data$time - 1, right = .data$time)
 
-    fit_t0 <- f_fit_t0(df_t0, model_t0, nreps, showplot)
+    t0_fit <- f_fit_t0(df_t0, model_t0, nreps, showplot)
 
     # skipping
     df_t1 <- df_k0 %>%
-      dplyr::filter(.data$skipped > 0) %>%
-      dplyr::mutate(k1 = .data$skipped)
+      filter(.data$skipped > 0) %>%
+      mutate(k1 = .data$skipped)
 
     if (nrow(df_t1) == 0) {
-      fit_t1 <- list(fit = list(model = "Linear model",
+      model_t1_x = stringr::str_to_title(model_t1)
+
+      t1_fit <- list(fit = list(model = model_t1_x,
                                 beta = 0,
                                 vbeta = 0,
                                 sigma = 0,
                                 df = NA,
                                 aic = NA,
                                 bic = NA),
-                     fit_plot = NA,
+                     fit_plot = NULL,
                      theta = matrix(0, nreps, 2))
     } else {
-      fit_t1 <- f_fit_ti(df_t1, model_t1, nreps, showplot)
+      t1_fit <- f_fit_ti(df_t1, model_t1, nreps, showplot)
     }
 
     # gap time and number of skipped visits between drug dispensing visits
-    df_ti <- vf1 %>%
-      dplyr::mutate(
-        time = dplyr::lead(.data$day) - .data$day,
-        skipped = pmax(floor((.data$time - .data$target_days/2)/
-                               .data$target_days), 0),
-        k1 = .data$skipped + 1) %>%
-      dplyr::filter(.data$row_id < dplyr::n())
+    df_ti <- vf %>%
+      mutate(time = lead(.data$day) - .data$day,
+             skipped = pmax(floor((.data$time - .data$target_days/2)/
+                                    .data$target_days), 0),
+             k1 = .data$skipped + 1) %>%
+      filter(.data$row_id < n())
 
-    fit_ki <- f_fit_ki(df_ti, model_ki, nreps, showplot)
-    fit_ti <- f_fit_ti(df_ti, model_ti, nreps, showplot)
+    ki_fit <- f_fit_ki(df_ti, model_ki, nreps, showplot)
+    ti_fit <- f_fit_ti(df_ti, model_ti, nreps, showplot)
   } else {
-    # fit separate models for k0, t0, t1, ki, ti across drugs
+    # fit separate models for k0, t0, t1, ki, ti across kit types
     common_time_model = FALSE
-    fit_k0 <- fit_t0 <- fit_t1 <- fit_ki <- fit_ti <- list()
+    k0_fit <- t0_fit <- t1_fit <- ki_fit <- ti_fit <- list()
 
     for (h in 1:l) {
-      # observed dosing data for the drug under consideration
-      vf1 <- vf %>% dplyr::filter(.data$drug == h)
+      # observed dosing data for the kit type under consideration
+      vf1 <- vf %>% filter(.data$kit == h)
 
       # time from randomization to the first drug dispensing visit
       df_k0 <- vf1 %>%
-        dplyr::filter(.data$row_id == 1) %>%
-        dplyr::mutate(
-          time = .data$day,
-          skipped = floor((.data$time - .data$target_days/2)/
-                            .data$target_days) + 1)
+        filter(.data$row_id == 1) %>%
+        mutate(time = .data$day,
+               skipped = floor((.data$time - .data$target_days/2)/
+                                 .data$target_days) + 1)
 
-      fit_k0[[h]] <- f_fit_ki(df_k0, model_k0, nreps, showplot)
+      k0_fit[[h]] <- f_fit_ki(df_k0, model_k0, nreps, showplot)
+      k0_fit[[h]]$fit_plot <- f_kit_name(k0_fit[[h]]$fit_plot, kit_name, h)
 
       # no skipping
       df_t0 <- df_k0 %>%
-        dplyr::filter(.data$skipped == 0) %>%
-        dplyr::mutate(left = .data$time - 1, right = .data$time)
+        filter(.data$skipped == 0) %>%
+        mutate(left = .data$time - 1, right = .data$time)
 
-      fit_t0[[h]] <- f_fit_t0(df_t0, model_t0, nreps, showplot)
+      t0_fit[[h]] <- f_fit_t0(df_t0, model_t0, nreps, showplot)
+      t0_fit[[h]]$fit_plot <- f_kit_name(t0_fit[[h]]$fit_plot, kit_name, h)
 
       # skipping
       df_t1 <- df_k0 %>%
-        dplyr::filter(.data$skipped > 0) %>%
-        dplyr::mutate(k1 = .data$skipped)
+        filter(.data$skipped > 0) %>%
+        mutate(k1 = .data$skipped)
 
       if (nrow(df_t1) == 0) {
-        if (tolower(model_t1) == "least squares") {
-          model_t1_x = "Least squares"
-        } else if (tolower(model_t1) == "least absolute deviations") {
-          model_t1_x = "Least absolute deviations"
-        }
+        model_t1_x = stringr::str_to_title(model_t1)
 
-        fit_t1[[h]] <- list(fit = list(model = model_t1_x,
+        t1_fit[[h]] <- list(fit = list(model = model_t1_x,
                                        beta = 0,
                                        vbeta = 0,
                                        sigma = 0,
                                        df = NA,
                                        aic = NA,
                                        bic = NA),
-                            fit_plot = NA,
+                            fit_plot = NULL,
                             theta = matrix(0, nreps, 2))
       } else {
-        fit_t1[[h]] <- f_fit_ti(df_t1, model_t1, nreps, showplot)
+        t1_fit[[h]] <- f_fit_ti(df_t1, model_t1, nreps, showplot)
+        t1_fit[[h]]$fit_plot <- f_kit_name(t1_fit[[h]]$fit_plot, kit_name, h)
       }
 
       # gap time and number of skipped visits between drug dispensing visits
       df_ti <- vf1 %>%
-        dplyr::mutate(
-          time = dplyr::lead(.data$day) - .data$day,
-          skipped = pmax(floor((.data$time - .data$target_days/2)/
-                                 .data$target_days), 0),
-          k1 = .data$skipped + 1) %>%
-        dplyr::filter(.data$row_id < dplyr::n())
+        mutate(time = lead(.data$day) - .data$day,
+               skipped = pmax(floor((.data$time - .data$target_days/2)/
+                                      .data$target_days), 0),
+               k1 = .data$skipped + 1) %>%
+        filter(.data$row_id < n())
 
-      fit_ki[[h]] <- f_fit_ki(df_ti, model_ki, nreps, showplot)
-      fit_ti[[h]] <- f_fit_ti(df_ti, model_ti, nreps, showplot)
+      ki_fit[[h]] <- f_fit_ki(df_ti, model_ki, nreps, showplot)
+      ki_fit[[h]]$fit_plot <- f_kit_name(ki_fit[[h]]$fit_plot, kit_name, h)
+
+      ti_fit[[h]] <- f_fit_ti(df_ti, model_ti, nreps, showplot)
+      ti_fit[[h]]$fit_plot <- f_kit_name(ti_fit[[h]]$fit_plot, kit_name, h)
     }
   }
 
-  # fit separate models for di for different drugs
-  fit_di <- purrr::map(1:l, function(h) {
-    # observed dosing data for the drug under consideration
-    vf1 <- vf %>% dplyr::filter(.data$drug == h)
+  # fit separate models for di for different kit types
+  di_fit <- list()
 
-    f_fit_di(vf1, model_di, nreps, showplot)
-  })
+  for (h in 1:l) {
+    # observed dosing data for the kit type under consideration
+    vf1 <- vf %>% filter(.data$kit == h)
+
+    di_fit[[h]] <- f_fit_di(vf1, model_di, nreps, showplot)
+    di_fit[[h]]$fit_plot <- f_kit_name(di_fit[[h]]$fit_plot, kit_name, h)
+  }
 
   # output model fit results
   list(common_time_model = common_time_model,
-       fit_k0 = fit_k0, fit_t0 = fit_t0, fit_t1 = fit_t1,
-       fit_ki = fit_ki, fit_ti = fit_ti, fit_di = fit_di)
+       k0_fit = k0_fit, t0_fit = t0_fit, t1_fit = t1_fit,
+       ki_fit = ki_fit, ti_fit = ti_fit, di_fit = di_fit)
 }
 

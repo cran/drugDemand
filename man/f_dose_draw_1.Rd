@@ -7,16 +7,17 @@
 f_dose_draw_1(
   i,
   common_time_model,
-  fit_k0,
-  fit_t0,
-  fit_t1,
-  fit_ki,
-  fit_ti,
-  fit_di,
+  k0_fit,
+  t0_fit,
+  t1_fit,
+  ki_fit,
+  ti_fit,
+  di_fit,
   vf_ongoing,
   vf_ongoing1,
+  vf_new,
   vf_new1,
-  treatment_by_drug_df,
+  vf_kit,
   l,
   t
 )
@@ -27,61 +28,65 @@ f_dose_draw_1(
 \item{common_time_model}{A Boolean variable that indicates whether
 a common time model is used for drug dispensing visits.}
 
-\item{fit_k0}{The model fit for the number of skipped
+\item{k0_fit}{The model fit for the number of skipped
 visits between randomization and the first drug dispensing visit.}
 
-\item{fit_t0}{The model fit for the gap time between randomization
+\item{t0_fit}{The model fit for the gap time between randomization
 and the first drug dispensing visit when there is no visit skipping.}
 
-\item{fit_t1}{The model fit for the gap time between randomization
+\item{t1_fit}{The model fit for the gap time between randomization
 and the first drug dispensing visit when there is visit skipping.}
 
-\item{fit_ki}{The model fit for the number of skipped
+\item{ki_fit}{The model fit for the number of skipped
 visits between two consecutive drug dispensing visits.}
 
-\item{fit_ti}{The model fit for the gap time between two
+\item{ti_fit}{The model fit for the gap time between two
 consecutive drug dispensing visits.}
 
-\item{fit_di}{The model fit for the dispensed doses at drug
+\item{di_fit}{The model fit for the dispensed doses at drug
 dispensing visits.}
 
-\item{vf_ongoing}{The observed drug dispensing data for ongoing
-patients with drug dispensing records. It includes the following
-variables: \code{draw}, \code{drug}, \code{drug_name}, \code{dose_unit},
-\code{usubjid}, \code{arrivalTime}, \code{treatment},
-\code{treatment_description}, \code{time}, \code{totalTime},
-\code{V}, \code{C}, and \code{D}.}
+\item{vf_ongoing}{A data frame for the observed drug dispensing
+data for ongoing patients with drug dispensing records.
+It includes the following variables:
+\code{draw}, \code{kit}, \code{kit_name}, \code{usubjid},
+\code{day}, \code{dose}, \code{arrivalTime}, \code{treatment},
+\code{treatment_description}, \code{time}, and \code{totalTime}.}
 
 \item{vf_ongoing1}{A data frame for the last observed drug dispensing
-date for ongoing patients with drug dispensing records, with or without
-the associated drug information. For the common time model, it includes
-the following variables: \code{draw}, \code{usubjid},
-\code{arrivalTime}, \code{treatment}, \code{treatment_description},
-\code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.
-For separate time models, it includes the following variables:
-\code{draw}, \code{drug}, \code{drug_name}, \code{dose_unit},
-\code{usubjid}, \code{arrivalTime}, \code{treatment},
+date for ongoing patients with drug dispensing records.
+For the common time model, it includes the following variables:
+\code{draw}, \code{usubjid}, \code{arrivalTime}, \code{treatment},
 \code{treatment_description}, \code{time}, \code{totalTime},
-\code{V}, \code{C}, and \code{D}.}
+\code{V}, \code{C}, and \code{D}.
+For separate time models, it includes the following variables:
+\code{draw}, \code{kit}, \code{kit_name}, \code{usubjid},
+\code{arrivalTime}, \code{treatment}, \code{treatment_description},
+\code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.}
+
+\item{vf_new}{A data frame for the randomization date for new
+patients and ongoing patients with no drug dispensing records.
+It includes the following variables:
+\code{draw}, \code{kit}, \code{kit_name}, \code{usubjid},
+\code{arrivalTime}, \code{treatment}, \code{treatment_description},
+\code{time}, and \code{totalTime}.}
 
 \item{vf_new1}{A data frame for the randomization date for new patients
-and ongoing patients with no drug dispensing records, with or without the
-associated drug information. For the common time model, it includes
-the following variables: \code{draw}, \code{usubjid},
-\code{arrivalTime}, \code{treatment}, \code{treatment_description},
-\code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.
-For separate time models, it includes the following variables:
-\code{draw}, \code{drug}, \code{drug_name}, \code{dose_unit},
-\code{usubjid}, \code{arrivalTime}, \code{treatment},
+and ongoing patients with no drug dispensing records.
+For the common time model, it includes the following variables:
+\code{draw}, \code{usubjid}, \code{arrivalTime}, \code{treatment},
 \code{treatment_description}, \code{time}, \code{totalTime},
-\code{V}, \code{C}, and \code{D}.}
+\code{V}, \code{C}, and \code{D}.
+For separate time models, it includes the following variables:
+\code{draw}, \code{kit}, \code{kit_name}, \code{usubjid},
+\code{arrivalTime}, \code{treatment}, \code{treatment_description},
+\code{time}, \code{totalTime}, \code{V}, \code{C}, and \code{D}.}
 
-\item{treatment_by_drug_df}{A data frame indicating the treatments
-associated with each drug, including the following variables:
-\code{treatment}, \code{drug}, \code{drug_name}, and
-\code{dose_unit}.}
+\item{vf_kit}{A data frame indicating the kit names for each subject
+by draw. It includes the following variables:
+\code{draw}, \code{usubjid}, \code{kit}, and \code{kit_name}.}
 
-\item{l}{Number of drugs.}
+\item{l}{Number of kit types.}
 
 \item{t}{A vector of new time points for drug dispensing prediction.}
 }
@@ -91,15 +96,15 @@ A list of two components:
 \item \code{dosing_subject_newi}: A data frame for the drug dispensing
 data at the subject level by date for ongoing and new subjects
 for the given iteration. It contains the following variables:
-\code{draw}, \code{drug}, \code{drug_name}, \code{dose_unit},
-\code{usubjid}, \code{day}, \code{dose}, \code{arrivalTime},
-\code{treatment}, \code{treatment_description}, \code{time},
-and \code{totalTime}.
+\code{draw}, \code{kit}, \code{kit_name}, \code{usubjid},
+\code{day}, \code{dose}, \code{arrivalTime}, \code{treatment},
+\code{treatment_description}, \code{time}, and \code{totalTime}.
 \item \code{dosing_summary_newi}: A data frame for the drug dispensing
 summary data by drug, time, and simulation draw for ongoing and
 new subjects for the given iteration. It includes the following
-variables: \code{drug}, \code{drug_name}, \code{dose_unit},
-\code{t}, \code{draw}, and \code{total_dose_b}.
+variables:
+\code{kit}, \code{kit_name}, \code{t}, \code{draw}, and
+\code{total_dose_b}.
 }
 }
 \description{
@@ -111,25 +116,8 @@ Simulates drug dispensing data for one iteration.
 set.seed(431)
 library(dplyr)
 
-df <- df2 \%>\%
-  mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
-
-vf <- visitview2 \%>\%
-  inner_join(df, by = "usubjid") \%>\%
-  mutate(day = as.numeric(date - randdt + 1)) \%>\%
-  select(drug, drug_name, dose_unit, usubjid, treatment,
-         treatment_description, arrivalTime,
-         time, event, dropout, day, dispensed_quantity) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid, treatment,
-           treatment_description, arrivalTime,
-           time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
-  mutate(cum_dose = cumsum(dose)) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid) \%>\%
-  mutate(row_id = row_number())
-
 pred <- eventPred::getPrediction(
-  df = df,
+  df = df2,
   to_predict = "event only",
   target_d = 250,
   event_model = "log-logistic",
@@ -140,69 +128,51 @@ pred <- eventPred::getPrediction(
   showsummary = FALSE,
   showplot = FALSE,
   by_treatment = TRUE)
-newEvents <- pred$event_pred$newEvents
 
-treatment_by_drug_df <- vf \%>\%
-  group_by(treatment, drug, drug_name, dose_unit) \%>\%
-  slice(n()) \%>\%
-  select(treatment, drug, drug_name, dose_unit)
+observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
 
 fit <- f_dispensing_models(
-  vf, dosing_schedule_df,
-  model_k0 = "zero-inflated poisson", model_t0 = "log-logistic",
+  observed$vf, dosing_schedule_df,
+  model_k0 = "zero-inflated poisson",
+  model_t0 = "log-logistic",
   model_t1 = "least squares",
-  model_ki = "zero-inflated poisson", model_ti = "least squares",
+  model_ki = "zero-inflated poisson",
+  model_ti = "least squares",
   model_di = "linear mixed-effects model",
   nreps = 200, showplot = FALSE)
 
-trialsdt = df$trialsdt[1]
-cutoffdt = df$cutoffdt[1]
+trialsdt = df2$trialsdt[1]
+cutoffdt = df2$cutoffdt[1]
 t0 = as.numeric(cutoffdt - trialsdt + 1)
 nyears = 3
 t1 = t0 + nyears*365
 t = c(seq(t0, t1, 30), t1)
 
-nreps = length(unique(newEvents$draw))
-l = length(unique(treatment_by_drug_df$drug))
+l = nrow(observed$kit_description_df)
 
-### dosing data for ongoing patients ###
-vf1 <- vf \%>\%
-  filter(event == 0) \%>\%
-  select(drug, drug_name, dose_unit, usubjid, day, dose)
+vf_ongoing_new <- f_ongoing_new(
+  pred$event_pred$newEvents,
+  observed$kit_description_df,
+  observed$treatment_by_drug_df,
+  observed$vf)
 
-# ongoing subjects with dosing records
-unames <- unique(vf1$usubjid)
+vf_ongoing <- vf_ongoing_new$vf_ongoing
+vf_new <- vf_ongoing_new$vf_new
 
-# replicate nreps times
-vf1_rep = tibble(draw = 1:nreps) \%>\%
-  cross_join(vf1)
+vf_kit <- vf_ongoing \%>\%
+  select(-c("day", "dose")) \%>\%
+  bind_rows(vf_new) \%>\%
+  group_by(draw, usubjid, kit, kit_name) \%>\%
+  slice(1) \%>\%
+  select(c("draw", "usubjid", "kit", "kit_name"))
 
-df1 <- newEvents \%>\%
-  filter(usubjid \%in\% unames) \%>\%
-  select(-c(event, dropout))
-
-vf_ongoing <- vf1_rep \%>\%
-  inner_join(df1, by = c("draw", "usubjid"))
-
-### new patients and ongoing patients with no dosing records ###
-df_new <- newEvents \%>\%
-  filter(!(usubjid \%in\% unames))
-
-vf_new <- purrr::map_dfr(
-  1:l, function(h) {
-    df_new \%>\%
-      inner_join(treatment_by_drug_df \%>\% filter(drug == h),
-                 by = "treatment")
-  }) \%>\% select(-c(event, dropout))
-
-# only keep the last record for each patient in each draw
 vf_ongoing1 <- vf_ongoing \%>\%
   group_by(draw, usubjid) \%>\%
   slice(n()) \%>\%
   mutate(V = day - 1,
          C = as.numeric(t0 - arrivalTime),
          D = pmin(time - 1, t1 - arrivalTime)) \%>\%
-  select(-c(drug, drug_name, dose_unit, day, dose))
+  select(-c("kit", "kit_name", "day", "dose"))
 
 ### new patients and ongoing patients with no dosing records ###
 vf_new1 <- vf_new \%>\%
@@ -211,15 +181,15 @@ vf_new1 <- vf_new \%>\%
   mutate(V = 0,
          C = as.numeric(t0 - arrivalTime),
          D = pmin(time - 1, t1 - arrivalTime)) \%>\%
-  select(-c(drug, drug_name, dose_unit))
+  select(-c("kit", "kit_name"))
 
 # first iteration to extract subject and summary data
 list1 <- f_dose_draw_1(
   1, fit$common_time_model,
-  fit$fit_k0, fit$fit_t0, fit$fit_t1,
-  fit$fit_ki, fit$fit_ti, fit$fit_di,
-  vf_ongoing, vf_ongoing1, vf_new1,
-  treatment_by_drug_df, l, t)
+  fit$k0_fit, fit$t0_fit, fit$t1_fit,
+  fit$ki_fit, fit$ti_fit, fit$di_fit,
+  vf_ongoing, vf_ongoing1, vf_new, vf_new1,
+  vf_kit, l, t)
 
 head(list1$dosing_subject_newi)
 head(list1$dosing_summary_newi)

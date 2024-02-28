@@ -43,39 +43,18 @@ between two consecutive drug dispensing visits.
 \examples{
 library(dplyr)
 
-df <- df2 \%>\%
-mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
+observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
+vf <- observed$vf
 
-vf <- visitview2 \%>\%
-  inner_join(df, by = "usubjid") \%>\%
-  mutate(day = as.numeric(date - randdt + 1)) \%>\%
-  select(drug, drug_name, dose_unit, usubjid, treatment,
-         treatment_description, arrivalTime,
-         time, event, dropout, day, dispensed_quantity) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid, treatment,
-           treatment_description, arrivalTime,
-           time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
-  mutate(cum_dose = cumsum(dose)) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid) \%>\%
-  mutate(row_id = row_number())
+vf <- vf \%>\% left_join(dosing_schedule_df, by = "kit")
 
-vf <- vf \%>\%
-  left_join(dosing_schedule_df, by = "drug")
-
-vf1 <- vf \%>\%
-  group_by(usubjid, day) \%>\%
-  slice(n()) \%>\%
-  group_by(usubjid) \%>\%
-  mutate(row_id = row_number())
-
-df_ti <- vf1 \%>\%
+df_ti <- vf \%>\%
   mutate(time = lead(day) - day,
          skipped = pmax(floor((time - target_days/2)/target_days), 0),
          k1 = skipped + 1) \%>\%
   filter(row_id < n())
 
-fit_ki <- f_fit_ki(df_ti, model = "zero-inflated poisson", nreps = 200)
+ki_fit <- f_fit_ki(df_ti, model = "zero-inflated poisson", nreps = 200)
 
 }
 \author{

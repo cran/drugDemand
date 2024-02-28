@@ -20,14 +20,15 @@ f_dispensing_models(
 \arguments{
 \item{vf}{A data frame for subject-level drug dispensing data,
 including the following variables:
-\code{drug}, \code{drug_name}, \code{dose_unit},
+\code{drug}, \code{drug_name}, \code{kit}, \code{kit_name},
 \code{usubjid}, \code{treatment}, \code{treatment_description},
 \code{arrivalTime}, \code{time}, \code{event}, \code{dropout},
 \code{day}, \code{dose}, \code{cum_dose}, and \code{row_id}.}
 
 \item{dosing_schedule_df}{A data frame providing dosing schedule
-information. It contains the following variables: \code{drug},
-\code{target_days}, \code{target_dose}, and \code{max_cycles}.}
+information. It contains the following variables:
+\code{kit}, \code{target_days}, \code{target_dose}, and
+\code{max_cycles}.}
 
 \item{model_k0}{The model for the number of skipped
 visits between randomization and the first drug dispensing visit.
@@ -67,19 +68,19 @@ A list with the following components:
 \itemize{
 \item \code{common_time_model}: A Boolean variable that indicates
 whether a common time model is used for drug dispensing visits.
-\item \code{fit_k0}: The model fit for the number of skipped
+\item \code{k0_fit}: The model fit for the number of skipped
 visits between randomization and the first drug dispensing visit.
-\item \code{fit_t0}: The model fit for the gap time between
+\item \code{t0_fit}: The model fit for the gap time between
 randomization and the first drug dispensing visit when there is
 no visit skipping.
-\item \code{fit_t1}: The model fit for the gap time between
+\item \code{t1_fit}: The model fit for the gap time between
 randomization and the first drug dispensing visit when there is
 visit skipping.
-\item \code{fit_ki}: The model fit for the number of skipped
+\item \code{ki_fit}: The model fit for the number of skipped
 visits between two consecutive drug dispensing visits.
-\item \code{fit_ti}: The model fit for the gap time between two
+\item \code{ti_fit}: The model fit for the gap time between two
 consecutive drug dispensing visits.
-\item \code{fit_di}: The model fit for the dispensed doses at drug
+\item \code{di_fit}: The model fit for the dispensed doses at drug
 dispensing visits.
 }
 }
@@ -90,32 +91,19 @@ dispensing data.
 \examples{
 library(dplyr)
 
-df <- df2 \%>\%
-  mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
-
-vf <- visitview2 \%>\%
-  inner_join(df, by = "usubjid") \%>\%
-  mutate(day = as.numeric(date - randdt + 1)) \%>\%
-  select(drug, drug_name, dose_unit, usubjid, treatment,
-         treatment_description, arrivalTime,
-         time, event, dropout, day, dispensed_quantity) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid, treatment,
-           treatment_description, arrivalTime,
-           time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
-  mutate(cum_dose = cumsum(dose)) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid) \%>\%
-  mutate(row_id = row_number())
+observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
 
 dispensing_models <- f_dispensing_models(
-  vf, dosing_schedule_df,
+  observed$vf, dosing_schedule_df,
   model_k0 = "zero-inflated poisson",
-  model_t0 = "log-logistic", model_t1 = "least squares",
-  model_ki = "zero-inflated poisson", model_ti = "least squares",
+  model_t0 = "log-logistic",
+  model_t1 = "least squares",
+  model_ki = "zero-inflated poisson",
+  model_ti = "least squares",
   model_di = "linear mixed-effects model",
   nreps = 200, showplot = FALSE)
 
-dispensing_models$fit_ki$fit_plot
+dispensing_models$ki_fit$fit_plot
 }
 \seealso{
 \code{\link{f_fit_t0}}, \code{\link{f_fit_ki}},

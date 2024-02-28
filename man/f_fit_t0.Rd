@@ -53,34 +53,13 @@ there is no visit skipping.
 \examples{
 library(dplyr)
 
-df <- df2 \%>\%
-  mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
+observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
+vf <- observed$vf
 
-vf <- visitview2 \%>\%
-  inner_join(df, by = "usubjid") \%>\%
-  mutate(day = as.numeric(date - randdt + 1)) \%>\%
-  select(drug, drug_name, dose_unit, usubjid, treatment,
-         treatment_description, arrivalTime,
-         time, event, dropout, day, dispensed_quantity) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid, treatment,
-           treatment_description, arrivalTime,
-           time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
-  mutate(cum_dose = cumsum(dose)) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid) \%>\%
-  mutate(row_id = row_number())
-
-vf <- vf \%>\%
-  left_join(dosing_schedule_df, by = "drug")
-
-vf1 <- vf \%>\%
-  group_by(usubjid, day) \%>\%
-  slice(n()) \%>\%
-  group_by(usubjid) \%>\%
-  mutate(row_id = row_number())
+vf <- vf \%>\% left_join(dosing_schedule_df, by = "kit")
 
 # time from randomization to the first drug dispensing visit
-df_k0 <- vf1 \%>\%
+df_k0 <- vf \%>\%
   filter(row_id == 1) \%>\%
   mutate(time = day,
          skipped = floor((time - target_days/2)/target_days) + 1)
@@ -90,7 +69,7 @@ df_t0 <- df_k0 \%>\%
   filter(skipped == 0) \%>\%
   mutate(left = time - 1, right = time)
 
-fit_t0 <- f_fit_t0(df_t0, model = "log-logistic", nreps = 200)
+t0_fit <- f_fit_t0(df_t0, model = "log-logistic", nreps = 200)
 
 }
 \author{

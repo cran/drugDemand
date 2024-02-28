@@ -8,18 +8,19 @@ f_drug_demand(
   df = NULL,
   newEvents = NULL,
   visitview = NULL,
-  drug_description_df = NULL,
-  treatment_by_drug = NULL,
+  kit_description_df = NULL,
+  treatment_by_drug_df = NULL,
   dosing_schedule_df = NULL,
-  model_k0 = "zero-inflated poisson",
-  model_t0 = "exponential",
+  model_k0 = "negative binomial",
+  model_t0 = "log-logistic",
   model_t1 = "least squares",
-  model_ki = "zero-inflated poisson",
-  model_ti = "least squares",
+  model_ki = "negative binomial",
+  model_ti = "least absolute deviations",
   model_di = "linear mixed-effects model",
   pilevel = 0.95,
-  nyears = 2,
+  nyears = 1,
   ncores_max = 10,
+  pred_pp_only = FALSE,
   showplot = TRUE
 )
 }
@@ -36,26 +37,30 @@ the output of the \code{getPrediction} function of the
 \code{eventPred} package. It contains the following variables:
 \code{draw}, \code{usubjid}, \code{arrivalTime}, \code{treatment},
 \code{treatment_description}, \code{time}, \code{event},
-\code{dropout}, and \code{totalTime}.}
+\code{dropout}, and \code{totalTime}. It must be provided.}
 
 \item{visitview}{A data frame containing the observed drug dispensing
 data, including the following variables:
 \code{usubjid}, \code{visit}, \code{date}, \code{drug},
-\code{drug_name}, \code{dose_unit}, \code{kit_number}, and
-\code{dispensed_quantity}.}
+\code{drug_name}, \code{kit}, \code{kit_name}, \code{kit_number},
+and \code{dispensed_quantity}.}
 
-\item{drug_description_df}{The drug description data frame
-including \code{drug}, \code{drug_name}, and \code{dose_unit}.
+\item{kit_description_df}{A data frame indicating the
+drug and kit descriptions, including the following variables:
+\code{drug}, \code{drug_name}, \code{kit}, and \code{kit_name}.
 It must be specified at the design stage. It will be replaced with
 the observed information at the analysis stage.}
 
-\item{treatment_by_drug}{The indicator matrix of treatment by drug
-combinations. It must be specified at the design stage. It will
+\item{treatment_by_drug_df}{A data frame indicating the treatments
+associated with each drug, including the following variables:
+\code{treatment} and \code{drug}.
+It must be specified at the design stage. It will
 be replaced with the observed information at the analysis stage.}
 
 \item{dosing_schedule_df}{A data frame providing dosing schedule
-information. It contains the following variables: \code{drug},
-\code{target_days}, \code{target_dose}, and \code{max_cycles}.}
+information. It contains the following variables:
+\code{kit}, \code{target_days}, \code{target_dose}, and
+\code{max_cycles}. It must be provided.}
 
 \item{model_k0}{The model for the number of skipped
 visits between randomization and the first drug dispensing visit.
@@ -92,6 +97,9 @@ dispensing visits. Options include "constant",
 computing. The actual number of cores used is the minimum of
 \code{ncores_max} and half of the detected number of cores.}
 
+\item{pred_pp_only}{A Boolean variable that controls whether or not
+to make protocol-based predictions only.}
+
 \item{showplot}{A Boolean variable that controls whether or not to
 show the drug dispensing model fit and drug demand prediction
 plots. It defaults to \code{TRUE}.}
@@ -100,10 +108,21 @@ plots. It defaults to \code{TRUE}.}
 For design-stage drug demand forecasting, a list with the
 following components:
 \itemize{
-\item \code{dosing_pred_pp}: A data frame for dosing summary by drug and
-time point per protocol. It includes the following variables: \code{drug},
-\code{drug_name}, \code{dose_unit}, \code{t}, \code{n}, \code{pilevel},
-\code{lower}, \code{upper}, \code{mean}, and \code{var}.
+\item \code{kit_description_df}: A data frame indicating the
+drug and kit descriptions, including the following variables:
+\code{drug}, \code{drug_name}, \code{kit}, and \code{kit_name}.
+\item \code{treatment_by_drug_df}: A data frame indicating the treatments
+associated with each drug, including the following variables:
+\code{treatment} and \code{drug}.
+\item \code{dosing_schedule_df}: A data frame providing dosing schedule
+information. It contains the following variables:
+\code{kit}, \code{target_days}, \code{target_dose}, and
+\code{max_cycles}.
+\item \code{dosing_pred_df}: A data frame for dosing summary by kit type
+and time point per protocol. It includes the following variables:
+\code{kit}, \code{kit_name}, \code{t}, \code{n}, \code{pilevel},
+\code{lower}, \code{upper}, \code{mean}, \code{var}, and
+\code{parameter}.
 \item \code{dosing_pred_plot}: A plot object for dosing prediction.
 }
 
@@ -114,10 +133,10 @@ following components:
 \item \code{cutoffdt}: The cutoff date.
 \item \code{dosing_summary_t0}: A data frame for the cumulative doses
 dispensed before the cutoff date. It contains the following
-variables: \code{drug}, \code{drug_name}, \code{dose_unit}, and
-\code{cum_dose_t0}.
+variables:
+\code{kit}, \code{kit_name}, and \code{cum_dose_t0}.
 \item \code{cum_dispense_plot}: The step plot for the cumulative doses
-dispensed for each drug.
+dispensed for each kit type.
 \item \code{bar_t0_plot}: The bar chart for the time between
 randomization and the first drug dispensing visit.
 \item \code{bar_ti_plot}: The bar chart for the gap time between two
@@ -126,36 +145,44 @@ consecutive drug dispensing visits.
 dispensing visits.
 \item \code{common_time_model}: A Boolean variable that indicates
 whether a common time model is used for drug dispensing visits.
-\item \code{fit_k0}: The model fit for the number of skipped
+\item \code{k0_fit}: The model fit for the number of skipped
 visits between randomization and the first drug dispensing visit.
-\item \code{fit_t0}: The model fit for the gap time between
+\item \code{t0_fit}: The model fit for the gap time between
 randomization and the first drug dispensing visit when there is
 no visit skipping.
-\item \code{fit_t1}: The model fit for the gap time between
+\item \code{t1_fit}: The model fit for the gap time between
 randomization and the first drug dispensing visit when there is
 visit skipping.
-\item \code{fit_ki}: The model fit for the number of skipped
+\item \code{ki_fit}: The model fit for the number of skipped
 visits between two consecutive drug dispensing visits.
-\item \code{fit_ti}: The model fit for the gap time between two
+\item \code{ti_fit}: The model fit for the gap time between two
 consecutive drug dispensing visits.
-\item \code{fit_di}: The model fit for the dispensed doses at drug
+\item \code{di_fit}: The model fit for the dispensed doses at drug
 dispensing visits.
-\item \code{dosing_subject}: A data frame for the observed and imputed
+\item \code{kit_description_df}: A data frame indicating the
+drug and kit descriptions, including the following variables:
+\code{drug}, \code{drug_name}, \code{kit}, and \code{kit_name}.
+\item \code{treatment_by_drug_df}: A data frame indicating the treatments
+associated with each drug, including the following variables:
+\code{treatment} and \code{drug}.
+\item \code{dosing_schedule_df}: A data frame providing dosing schedule
+information. It contains the following variables:
+\code{kit}, \code{target_days}, \code{target_dose}, and
+\code{max_cycles}.
+\item \code{dosing_subject_df}: A data frame for the observed and imputed
 subject-level dosing records for the first iteration. It includes
-the following variables: \code{drug}, \code{drug_name}, \code{dose_unit},
+the following variables:
+\code{drug}, \code{drug_name}, \code{kit}, \code{kit_name},
 \code{usubjid}, \code{treatment}, \code{treatment_description},
 \code{arrivalTime}, \code{time}, \code{day}, \code{dose},
 \code{cum_dose}, \code{row_id}, \code{subject_type}, \code{imputed},
-\code{trialsdt}, \code{cutoffdt}, \code{randdt}, \code{adt}, and
-\code{date}.
-\item \code{dosing_pred_df}: A data frame for dosing summary by drug and
-time point. It includes the following variables: \code{drug},
-\code{drug_name}, \code{dose_unit}, \code{t}, \code{n}, \code{pilevel},
-\code{lower}, \code{upper}, \code{mean}, \code{var}, and \code{date}.
-\item \code{dosing_pred_pp}: A data frame for dosing summary by drug and
-time point per protocol. It includes the following variables: \code{drug},
-\code{drug_name}, \code{dose_unit}, \code{t}, \code{n}, \code{pilevel},
-\code{lower}, \code{upper}, \code{mean}, \code{var}, and \code{date}.
+\code{trialsdt}, \code{cutoffdt}, \code{randdt}, \code{adt},
+and \code{date}.
+\item \code{dosing_pred_df}: A data frame for dosing summary by kit type
+and time point. It includes the following variables:
+\code{kit}, \code{kit_name}, \code{t}, \code{n}, \code{pilevel},
+\code{lower}, \code{upper}, \code{mean}, \code{var}, \code{date},
+and \code{parameter}.
 \item \code{dosing_pred_plot}: A plot object for dosing prediction.
 }
 }
@@ -168,8 +195,6 @@ simulation.
 \donttest{
 set.seed(529)
 
-tictoc::tic("event prediction")
-
 pred <- eventPred::getPrediction(
   df = df2,
   to_predict = "event only",
@@ -181,11 +206,6 @@ pred <- eventPred::getPrediction(
   nreps = 200,
   showplot = FALSE,
   by_treatment = TRUE)
-
-tictoc::toc()
-
-
-tictoc::tic("drug demand prediction")
 
 drug_demand <- f_drug_demand(
   df = df2,
@@ -202,8 +222,6 @@ drug_demand <- f_drug_demand(
   nyears = 1,
   ncores_max = 2,
   showplot = FALSE)
-
-tictoc::toc()
 
 drug_demand$dosing_pred_plot
 }

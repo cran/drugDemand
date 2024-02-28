@@ -11,9 +11,9 @@ An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) w
 dosing_schedule_df
 }
 \description{
-A data frame with 4 rows and 4 columns:
+A data frame with the following columns:
 \describe{
-\item{\code{drug}}{The numeric code of the drug.}
+\item{\code{kit}}{The numeric code of the kit type.}
 \item{\code{target_days}}{Number of days per treatment cycle.}
 \item{\code{target_dose}}{Dose per treatment cycle.}
 \item{\code{max_cycles}}{Maximum number of treatment cycles.}

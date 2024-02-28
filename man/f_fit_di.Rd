@@ -8,7 +8,7 @@ f_fit_di(df, model, nreps, showplot = TRUE)
 }
 \arguments{
 \item{df}{The subject-level dosing data, including \code{usubjid},
-\code{day}, \code{drug}, and \code{dose}.}
+\code{day}, \code{kit}, and \code{dose}.}
 
 \item{model}{The model used to analyze the dispensed doses, with
 options including "constant", "linear model", and
@@ -52,25 +52,11 @@ at drug dispensing visits.
 \examples{
 library(dplyr)
 
-df <- df2 \%>\%
-  mutate(arrivalTime = as.numeric(randdt - trialsdt + 1))
+observed <- f_dose_observed(df2, visitview2, showplot = FALSE)
+vf <- observed$vf
 
-vf <- visitview2 \%>\%
-  inner_join(df, by = "usubjid") \%>\%
-  mutate(day = as.numeric(date - randdt + 1)) \%>\%
-  select(drug, drug_name, dose_unit, usubjid, treatment,
-         treatment_description, arrivalTime,
-         time, event, dropout, day, dispensed_quantity) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid, treatment,
-           treatment_description, arrivalTime,
-           time, event, dropout, day) \%>\%
-  summarise(dose = sum(dispensed_quantity), .groups = "drop_last") \%>\%
-  mutate(cum_dose = cumsum(dose)) \%>\%
-  group_by(drug, drug_name, dose_unit, usubjid) \%>\%
-  mutate(row_id = row_number())
-
-vf1 <- vf \%>\% filter(drug == 3)
-fit_di <- f_fit_di(vf1, model = "linear mixed-effects model", nreps = 200)
+vf1 <- vf \%>\% filter(kit == 3)
+di_fit <- f_fit_di(vf1, model = "linear mixed-effects model", nreps = 200)
 
 }
 \author{

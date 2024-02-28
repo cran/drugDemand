@@ -11,7 +11,7 @@ An object of class \code{tbl_df} (inherits from \code{tbl}, \code{data.frame}) w
 df2
 }
 \description{
-A data frame with 250 rows and 9 columns:
+A data frame with the following columns:
 \describe{
 \item{\code{trialsdt}}{The trial start date.}
 \item{\code{usubjid}}{The unique subject ID.}
